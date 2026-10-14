@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Project Name** | FlagForge — Feature Flag & Dynamic Config Engine |
-| **Document Version** | 1.0.0 |
+| **Document Version** | 1.1.0 |
 | **Status** | Approved |
 
 ---
@@ -50,7 +50,7 @@ This document specifies the software requirements for **FlagForge**, a B2B SaaS 
 
 | # | Actor | Type | Description |
 | :--- | :--- | :--- | :--- |
-| 1 | **Workspace Admin (Operator)** | Human | Interacts with the FlagForge Dashboard to manage workspaces, flags, environments, and view audit logs. |
+| 1 | **Workspace Admin (Operator)** | Human | Interacts with the FlagForge Dashboard to manage workspaces, flags, environments, and view audit logs. In v1 there is a single bootstrap admin configured via environment variables (no users table); the admin email is used as `actorId` in audit logs. |
 | 2 | **Client Application (SDK)** | Machine | Runs in client backend/frontend services and calls the Evaluation API to resolve feature flag states. |
 | 3 | **Evaluation Engine** | Internal component | Stateless domain component responsible for executing targeting rules and hashing functions. |
 
@@ -85,7 +85,7 @@ This document specifies the software requirements for **FlagForge**, a B2B SaaS 
 | :--- | :--- |
 | **FR-11** | The Workspace Admin shall be able to view a paginated list of flags and search by key or name. |
 | **FR-12** | The Workspace Admin shall be able to update flag configuration (`isEnabled`, `percentageRollout`, `targetingRules`). |
-| **FR-13** | The Workspace Admin shall be able to archive/delete a feature flag. |
+| **FR-13** | The Workspace Admin shall be able to archive (soft-delete) a feature flag by setting `archivedAt`. Archived flags are excluded from listings and evaluate as `404 Flag Not Found`; their audit history is preserved. |
 
 ### 4.3 Evaluation Engine
 
@@ -134,7 +134,7 @@ This document specifies the software requirements for **FlagForge**, a B2B SaaS 
 flowchart TD
   Start([Evaluation Request]) --> AuthCheck{Valid SDK Key?}
   AuthCheck -- No --> R401[Return 401 Unauthorized]
-  AuthCheck -- Yes --> FlagCheck{Flag Exists?}
+  AuthCheck -- Yes --> FlagCheck{Flag exists and not archived?}
   FlagCheck -- No --> R404[Return 404 Flag Not Found]
   FlagCheck -- Yes --> MasterCheck{isEnabled == true?}
 
@@ -186,6 +186,7 @@ erDiagram
     jsonb targeting_rules
     timestamptz created_at
     timestamptz updated_at
+    timestamptz archived_at "NULL = active"
   }
 
   audit_logs {
@@ -203,6 +204,12 @@ erDiagram
   environments ||--o{ feature_flags : "owns"
   environments ||--o{ audit_logs : "logs"
 ```
+
+**Constraints:**
+
+- `feature_flags`: `UNIQUE (environment_id, key)` — a flag key is unique within an environment (FR-10).
+- `feature_flags.archived_at`: `NULL` for active flags; set on archive (FR-13). Flags are never hard-deleted, so `audit_logs.flag_id` always references an existing row.
+- `audit_logs.actor_id`: email of the Workspace Admin who made the change.
 
 ---
 
@@ -272,3 +279,4 @@ erDiagram
 | Date | Version | Summary of Changes | Author |
 | :--- | :--- | :--- | :--- |
 | 2026-10-14 | 1.0.0 | Initial SRS draft for FlagForge core engine | Oleksandr Mushynski |
+| 2026-10-14 | 1.1.0 | FR-13: soft delete via `archived_at`; §3: single env-configured admin, `actorId` = admin email; §6: `UNIQUE (environment_id, key)` and `archived_at` column | Oleksandr Mushynski |
