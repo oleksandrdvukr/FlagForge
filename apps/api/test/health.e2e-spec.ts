@@ -1,14 +1,17 @@
 import { INestApplication } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/common/prisma/prisma.service';
-import { configureApp } from '../src/configure-app';
+import { APP_OPTIONS, configureApp } from '../src/configure-app';
 
 async function createApp(prismaOverride?: Partial<PrismaService>): Promise<INestApplication> {
   let builder = Test.createTestingModule({ imports: [AppModule] });
   if (prismaOverride) builder = builder.overrideProvider(PrismaService).useValue(prismaOverride);
-  const app = configureApp((await builder.compile()).createNestApplication());
+  const app = configureApp(
+    (await builder.compile()).createNestApplication<NestExpressApplication>(APP_OPTIONS),
+  );
   await app.init();
   return app;
 }
