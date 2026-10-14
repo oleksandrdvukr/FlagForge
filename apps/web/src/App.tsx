@@ -2,9 +2,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { ApiError } from './api/client';
 import { Shell } from './layout/Shell';
+import { AuditPage } from './pages/AuditPage';
 import { FlagEditorPage } from './pages/FlagEditorPage';
 import { FlagsPage } from './pages/FlagsPage';
 import { HomeRedirect } from './pages/HomeRedirect';
+import { KeysPage } from './pages/KeysPage';
 import { LoginPage } from './pages/LoginPage';
 import { NewWorkspacePage } from './pages/NewWorkspacePage';
 import { PlaygroundPage } from './pages/PlaygroundPage';
@@ -31,6 +33,8 @@ const router = createBrowserRouter([
       { path: 'flags', element: <FlagsPage /> },
       { path: 'flags/:flagId', element: <FlagEditorPage /> },
       { path: 'playground', element: <PlaygroundPage /> },
+      { path: 'keys', element: <KeysPage /> },
+      { path: 'audit', element: <AuditPage /> },
     ],
   },
   { path: '*', element: <HomeRedirect /> },
