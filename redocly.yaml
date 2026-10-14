@@ -1,0 +1,12 @@
+extends:
+  - recommended
+
+apis:
+  flagforge:
+    root: docs/api/openapi.yaml
+
+rules:
+  # v1 is self-hosted; localhost is the real default server.
+  no-server-example.com: off
+  # Health probes and logout have no client-error responses by design.
+  operation-4xx-response: off

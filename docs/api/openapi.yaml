@@ -1,0 +1,805 @@
+openapi: 3.0.3
+info:
+  title: FlagForge API
+  version: 1.0.0
+  description: |
+    Feature flag & dynamic config engine.
+
+    - **Management API** — used by the dashboard; authenticated with the `ff_session` JWT cookie (FR-32, SEC-02).
+    - **Evaluation API** — used by client applications; authenticated with the `X-Environment-Key` header (FR-33).
+    - **Health** — unauthenticated liveness/readiness probes (NFR-03).
+
+    Source of truth: `docs/01-srs.md`. Design: `docs/02-design.md` §6.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3000
+    description: Local (docker compose)
+
+tags:
+  - name: Auth
+    description: Admin session login/logout (FR-32, SEC-02).
+  - name: Workspaces
+    description: Top-level tenants (FR-01, FR-02).
+  - name: Environments
+    description: Deployment stages and their SDK keys (FR-02 – FR-05).
+  - name: Flags
+    description: Feature flag management (FR-10 – FR-13).
+  - name: Audit
+    description: Immutable change history (FR-30, FR-31).
+  - name: Evaluation
+    description: Flag evaluation for client applications (FR-20 – FR-24).
+  - name: Health
+    description: Liveness and readiness probes (NFR-03).
+
+security:
+  - cookieAuth: []
+
+paths:
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      summary: Log in as the workspace admin
+      description: "FR-32, SEC-02. Validates the env-configured admin credentials (ADR-0006) and sets the `ff_session` cookie (HttpOnly, SameSite=Lax, 12 h TTL)."
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '204':
+          description: Logged in. Session cookie set.
+          headers:
+            Set-Cookie:
+              description: "`ff_session=<jwt>; HttpOnly; SameSite=Lax; Path=/; Max-Age=43200` (+ `Secure` in production)"
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      summary: Log out
+      description: FR-32. Clears the session cookie.
+      responses:
+        '204':
+          description: Logged out. Session cookie cleared.
+
+  /api/v1/workspaces:
+    get:
+      tags: [Workspaces]
+      operationId: listWorkspaces
+      summary: List workspaces
+      description: FR-01.
+      responses:
+        '200':
+          description: All workspaces, newest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Workspace'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Workspaces]
+      operationId: createWorkspace
+      summary: Create a workspace
+      description: "FR-01, FR-02, FR-03. Creates the workspace with `Development` and `Production` environments in one transaction. Raw SDK keys are returned **only in this response** (FR-04)."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkspaceRequest'
+      responses:
+        '201':
+          description: Workspace created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateWorkspaceResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/workspaces/{workspaceId}/environments:
+    get:
+      tags: [Environments]
+      operationId: listEnvironments
+      summary: List environments of a workspace
+      description: FR-02. SDK keys are never returned here — only their prefix.
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+      responses:
+        '200':
+          description: Environments of the workspace.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Environment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/environments/{environmentId}/sdk-key/rotate:
+    post:
+      tags: [Environments]
+      operationId: rotateSdkKey
+      summary: Revoke and regenerate the SDK key
+      description: "FR-03, FR-04, FR-05, SEC-01. The previous key stops working immediately. The raw key is returned **once**."
+      parameters:
+        - $ref: '#/components/parameters/EnvironmentId'
+      responses:
+        '200':
+          description: New SDK key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SdkKeyResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/environments/{environmentId}/flags:
+    get:
+      tags: [Flags]
+      operationId: listFlags
+      summary: List flags (paginated, searchable)
+      description: "FR-11. Archived flags are excluded (FR-13). `q` matches `key` or `name` (case-insensitive substring)."
+      parameters:
+        - $ref: '#/components/parameters/EnvironmentId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 100
+      responses:
+        '200':
+          description: A page of flags.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlagPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Flags]
+      operationId: createFlag
+      summary: Create a flag
+      description: "FR-10, FR-30. New flags start in the `Disabled` state (SRS §4.5). Writes an audit entry with action `CREATED`."
+      parameters:
+        - $ref: '#/components/parameters/EnvironmentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFlagRequest'
+      responses:
+        '201':
+          description: Flag created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Flag'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /api/v1/flags/{flagId}:
+    get:
+      tags: [Flags]
+      operationId: getFlag
+      summary: Get a flag
+      description: FR-11. Archived flags return 404.
+      parameters:
+        - $ref: '#/components/parameters/FlagId'
+      responses:
+        '200':
+          description: The flag.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Flag'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Flags]
+      operationId: updateFlag
+      summary: Update a flag
+      description: "FR-12, FR-30. Partial update; `targetingRules` is replaced as a whole. Writes an audit entry with action `UPDATED`. Setting `isEnabled: false` is the kill-switch."
+      parameters:
+        - $ref: '#/components/parameters/FlagId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFlagRequest'
+      responses:
+        '200':
+          description: Updated flag.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Flag'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Flags]
+      operationId: archiveFlag
+      summary: Archive a flag (soft delete)
+      description: "FR-13, FR-30. Sets `archivedAt`; the flag disappears from listings and evaluates as 404. Terminal state (SRS §4.5). Writes an audit entry with action `ARCHIVED`."
+      parameters:
+        - $ref: '#/components/parameters/FlagId'
+      responses:
+        '204':
+          description: Flag archived.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/environments/{environmentId}/audit-logs:
+    get:
+      tags: [Audit]
+      operationId: listAuditLogs
+      summary: List audit log entries (paginated)
+      description: FR-30, FR-31. Newest first. Optional filter by flag.
+      parameters:
+        - $ref: '#/components/parameters/EnvironmentId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: flagId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: A page of audit entries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/evaluate:
+    post:
+      tags: [Evaluation]
+      operationId: evaluateFlag
+      summary: Evaluate a flag for a context
+      description: "FR-20 – FR-24, FR-33, SEC-03, SEC-04, NFR-01. Stateless and deterministic; performs zero database writes. Resolution order: master switch → targeting rules → percentage rollout → default (SRS §5)."
+      security:
+        - sdkKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluationRequest'
+            example:
+              flagKey: new-checkout-flow
+              userId: usr_99211
+              attributes:
+                plan: enterprise
+                country: UA
+      responses:
+        '200':
+          description: Evaluation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationResponse'
+              example:
+                flagKey: new-checkout-flow
+                value: true
+                reason: TARGETING_MATCH
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /healthz:
+    get:
+      tags: [Health]
+      operationId: healthz
+      summary: Liveness probe
+      description: NFR-03. Does not touch the database.
+      security: []
+      responses:
+        '200':
+          description: Process is alive.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /readyz:
+    get:
+      tags: [Health]
+      operationId: readyz
+      summary: Readiness probe
+      description: NFR-03. Runs `SELECT 1` against PostgreSQL.
+      security: []
+      responses:
+        '200':
+          description: Ready to serve traffic.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Database unreachable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: ff_session
+      description: JWT (HS256) session cookie issued by `POST /api/v1/auth/login` (FR-32, SEC-02).
+    sdkKey:
+      type: apiKey
+      in: header
+      name: X-Environment-Key
+      description: "Environment SDK key, `ff_live_…` or `ff_test_…` (FR-03, FR-33)."
+
+  parameters:
+    WorkspaceId:
+      name: workspaceId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    EnvironmentId:
+      name: environmentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    FlagId:
+      name: flagId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: pageSize
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  responses:
+    BadRequest:
+      description: Validation failed (SEC-03).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            statusCode: 400
+            error: Bad Request
+            message: Validation failed
+            details:
+              - path: [percentageRollout]
+                message: Number must be less than or equal to 100
+    Unauthorized:
+      description: Missing or invalid session cookie / SDK key.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found (archived flags included).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: A flag with this key already exists in the environment.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    TooManyRequests:
+      description: Rate limit of 1000 requests/minute per SDK key exceeded (SEC-04).
+      headers:
+        Retry-After:
+          description: Seconds until a token is available.
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 1
+
+    Workspace:
+      type: object
+      required: [id, name, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateWorkspaceRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+
+    CreateWorkspaceResponse:
+      type: object
+      required: [workspace, environments]
+      properties:
+        workspace:
+          $ref: '#/components/schemas/Workspace'
+        environments:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/Environment'
+              - type: object
+                required: [sdkKey]
+                properties:
+                  sdkKey:
+                    type: string
+                    description: Raw SDK key. Shown once; only its SHA-256 hash is stored.
+                    example: ff_test_9pQ2v...
+
+    Environment:
+      type: object
+      required: [id, workspaceId, name, sdkKeyPrefix, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          enum: [Development, Production]
+        sdkKeyPrefix:
+          type: string
+          enum: [ff_test_, ff_live_]
+        createdAt:
+          type: string
+          format: date-time
+
+    SdkKeyResponse:
+      type: object
+      required: [environmentId, sdkKey]
+      properties:
+        environmentId:
+          type: string
+          format: uuid
+        sdkKey:
+          type: string
+          description: Raw SDK key. Shown once.
+          example: ff_live_Xk3n...
+
+    TargetingRule:
+      type: object
+      description: "FR-23. Matches when `context.attributes[attribute]` satisfies `operator` against `values`. Missing attribute never matches (design §5.4)."
+      required: [attribute, operator, values, value]
+      properties:
+        attribute:
+          type: string
+          minLength: 1
+          maxLength: 64
+        operator:
+          type: string
+          enum: [EQUALS, NOT_EQUALS, IN, CONTAINS, GREATER_THAN]
+        values:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/AttributeValue'
+        value:
+          type: boolean
+          description: Result returned when the rule matches.
+      example:
+        attribute: plan
+        operator: EQUALS
+        values: [enterprise]
+        value: true
+
+    AttributeValue:
+      oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+
+    Flag:
+      type: object
+      required: [id, environmentId, key, name, description, isEnabled, percentageRollout, targetingRules, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        environmentId:
+          type: string
+          format: uuid
+        key:
+          type: string
+          pattern: '^[a-z0-9-_]{3,64}$'
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        isEnabled:
+          type: boolean
+        percentageRollout:
+          type: integer
+          minimum: 0
+          maximum: 100
+        targetingRules:
+          type: array
+          items:
+            $ref: '#/components/schemas/TargetingRule'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateFlagRequest:
+      type: object
+      description: FR-10.
+      required: [key, name]
+      properties:
+        key:
+          type: string
+          pattern: '^[a-z0-9-_]{3,64}$'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        isEnabled:
+          type: boolean
+          default: false
+        percentageRollout:
+          type: integer
+          minimum: 0
+          maximum: 100
+          default: 0
+        targetingRules:
+          type: array
+          maxItems: 50
+          default: []
+          items:
+            $ref: '#/components/schemas/TargetingRule'
+
+    UpdateFlagRequest:
+      type: object
+      description: FR-12. At least one field is required.
+      minProperties: 1
+      properties:
+        isEnabled:
+          type: boolean
+        percentageRollout:
+          type: integer
+          minimum: 0
+          maximum: 100
+        targetingRules:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/TargetingRule'
+
+    FlagPage:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Flag'
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+
+    AuditLog:
+      type: object
+      description: FR-31. Immutable.
+      required: [id, environmentId, flagId, action, actorId, previousState, newState, timestamp]
+      properties:
+        id:
+          type: string
+          description: bigint serialized as string
+          example: '42'
+        environmentId:
+          type: string
+          format: uuid
+        flagId:
+          type: string
+          format: uuid
+        action:
+          type: string
+          enum: [CREATED, UPDATED, ARCHIVED]
+        actorId:
+          type: string
+          description: Admin email (ADR-0006).
+        previousState:
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/Flag'
+          nullable: true
+          description: "`null` for `CREATED`."
+        newState:
+          $ref: '#/components/schemas/Flag'
+        timestamp:
+          type: string
+          format: date-time
+
+    AuditLogPage:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLog'
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+
+    EvaluationRequest:
+      type: object
+      description: "Evaluation Context (FR-20). `userId` is optional; without it a percentage rollout resolves to `MISSING_USER_ID` (FR-22)."
+      required: [flagKey]
+      properties:
+        flagKey:
+          type: string
+          pattern: '^[a-z0-9-_]{3,64}$'
+        userId:
+          type: string
+          minLength: 1
+          maxLength: 256
+        attributes:
+          type: object
+          maxProperties: 50
+          additionalProperties:
+            $ref: '#/components/schemas/AttributeValue'
+          default: {}
+
+    EvaluationResponse:
+      type: object
+      required: [flagKey, value, reason]
+      properties:
+        flagKey:
+          type: string
+        value:
+          type: boolean
+        reason:
+          type: string
+          enum: [DISABLED, TARGETING_MATCH, PERCENTAGE_ROLLOUT, MISSING_USER_ID, DEFAULT]
+
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok, error]
+
+    Error:
+      type: object
+      required: [statusCode, error, message]
+      properties:
+        statusCode:
+          type: integer
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            type: object
+            required: [path, message]
+            properties:
+              path:
+                type: array
+                items:
+                  oneOf:
+                    - type: string
+                    - type: integer
+              message:
+                type: string
