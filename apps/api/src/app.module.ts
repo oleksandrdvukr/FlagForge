@@ -7,6 +7,7 @@ import { EnvironmentsModule } from './environments/environments.module';
 import { EvaluationModule } from './evaluation/evaluation.module';
 import { FlagsModule } from './flags/flags.module';
 import { HealthModule } from './health/health.module';
+import { SpaModule } from './spa/spa.module';
 import { WorkspacesModule } from './workspaces/workspaces.module';
 
 @Module({
@@ -20,6 +21,7 @@ import { WorkspacesModule } from './workspaces/workspaces.module';
     EvaluationModule,
     FlagsModule,
     AuditModule,
+    SpaModule.register(),
   ],
 })
 export class AppModule {}
