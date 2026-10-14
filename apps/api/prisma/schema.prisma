@@ -1,0 +1,75 @@
+// Physical data model for SRS §6 (v1.2.1). Constraints beyond Prisma's DSL
+// (CHECK, audit immutability trigger) live in the SQL migrations.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Workspace {
+  id           String        @id @default(uuid()) @db.Uuid
+  name         String
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  environments Environment[]
+
+  @@map("workspaces")
+}
+
+model Environment {
+  id          String        @id @default(uuid()) @db.Uuid
+  workspaceId String        @map("workspace_id") @db.Uuid
+  name        String
+  /// SEC-01: SHA-256 hex of the raw SDK key; the raw key is never stored.
+  sdkKeyHash  String        @unique @map("sdk_key_hash")
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  flags       FeatureFlag[]
+  auditLogs   AuditLog[]
+
+  @@unique([workspaceId, name])
+  @@map("environments")
+}
+
+model FeatureFlag {
+  id                String      @id @default(uuid()) @db.Uuid
+  environmentId     String      @map("environment_id") @db.Uuid
+  key               String
+  name              String
+  description       String?
+  isEnabled         Boolean     @default(false) @map("is_enabled")
+  /// 0..100, enforced by CHECK constraint `feature_flags_percentage_rollout_range`.
+  percentageRollout Int         @default(0) @map("percentage_rollout")
+  /// TargetingRule[] validated by the shared Zod schema (ADR-0002).
+  targetingRules    Json        @default("[]") @map("targeting_rules")
+  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime    @default(now()) @map("updated_at") @db.Timestamptz(3)
+  /// FR-13: NULL = active; set on archive (soft delete).
+  archivedAt        DateTime?   @map("archived_at") @db.Timestamptz(3)
+  environment       Environment @relation(fields: [environmentId], references: [id], onDelete: Restrict)
+  auditLogs         AuditLog[]
+
+  @@unique([environmentId, key])
+  @@map("feature_flags")
+}
+
+/// FR-30, FR-31: append-only; UPDATE and DELETE are rejected by a database trigger.
+model AuditLog {
+  id            BigInt      @id @default(autoincrement())
+  environmentId String      @map("environment_id") @db.Uuid
+  flagId        String      @map("flag_id") @db.Uuid
+  action        String
+  actorId       String      @map("actor_id")
+  previousState Json?       @map("previous_state")
+  newState      Json        @map("new_state")
+  performedAt   DateTime    @map("performed_at") @db.Timestamptz(3)
+  environment   Environment @relation(fields: [environmentId], references: [id], onDelete: Restrict)
+  flag          FeatureFlag @relation(fields: [flagId], references: [id], onDelete: Restrict)
+
+  @@index([environmentId, performedAt(sort: Desc)])
+  @@index([flagId])
+  @@map("audit_logs")
+}
