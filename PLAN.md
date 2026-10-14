@@ -18,7 +18,7 @@ Implementation plan for FlagForge v1. Source of truth: [`docs/01-srs.md`](./docs
 | 1 | Monorepo scaffold & CI | ✅ |
 | 2 | Evaluation engine (pure domain) | ✅ |
 | 3 | Persistence | ✅ |
-| 4 | Workspaces, environments & SDK keys | ⬜ |
+| 4 | Workspaces, environments & SDK keys | ✅ |
 | 5 | Evaluation API | ⬜ |
 | 6 | Auth, flags & audit API | ⬜ |
 | 7 | Dashboard | ⬜ |
@@ -107,13 +107,15 @@ Implementation plan for FlagForge v1. Source of truth: [`docs/01-srs.md`](./docs
 
 - `WorkspacesModule`: create (with `Development` + `Production` in one transaction), list.
 - `EnvironmentsModule`: SDK key generation (`ff_test_` / `ff_live_`), SHA-256 storage, rotation, lookup by hash.
+- `ZodValidationPipe` (moved here from phase 5: `POST /workspaces` is the first endpoint with a request body).
 - Routes temporarily unguarded; `AdminGuard` is added in phase 6.
 
 **Exit criteria:** tests for FR-01–FR-05, SEC-01 (raw key never persisted, returned once, old key invalid after rotation).
 
 **Commits:**
-1. `feat(api): add workspaces module with default environments`
+1. `feat(api): add zod validation pipe`
 2. `feat(api): add sdk key generation, hashing and rotation`
+3. `feat(api): add workspaces module with default environments`
 
 ---
 
@@ -122,13 +124,13 @@ Implementation plan for FlagForge v1. Source of truth: [`docs/01-srs.md`](./docs
 **Goal:** first end-to-end vertical slice: SDK key → evaluate → result.
 
 - `SdkKeyGuard` (FR-33), `RateLimitGuard` with token bucket on `Clock` (SEC-04).
-- Global `ZodValidationPipe` + error filter (SEC-03, design §6.4).
+- Error filter for unexpected errors (SEC-03, design §6.4); `ZodValidationPipe` already exists from phase 4.
 - `POST /api/v1/evaluate` — archived flags → `404`.
 
 **Exit criteria:** e2e tests AC-01, AC-02, AC-03; `400`, `401`, `404`, `429` paths; evaluation performs zero writes (FR-24).
 
 **Commits:**
-1. `feat(api): add zod validation pipe and error filter`
+1. `feat(api): add error filter`
 2. `feat(api): add sdk key guard`
 3. `feat(api): add token bucket rate limiter`
 4. `feat(api): add evaluate endpoint`

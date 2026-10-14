@@ -15,11 +15,11 @@ Status: ⬜ planned · 🟡 in progress · ✅ implemented & tested · ⚠️ ch
 
 | ID | Requirement (short) | Phase | Test(s) | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| FR-01 | Create & list workspaces | 4 | — | ⬜ |
-| FR-02 | Default `Development` + `Production` environments | 4 | — | ⬜ |
-| FR-03 | Secure SDK key per environment (`ff_live_` / `ff_test_`) | 4 | — | ⬜ |
-| FR-04 | Store only SHA-256 of SDK key; show raw key once | 4 | — | ⬜ |
-| FR-05 | Revoke & regenerate SDK key | 4 | — | ⬜ |
+| FR-01 | Create & list workspaces | 4 | `apps/api/test/workspaces.e2e-spec.ts` (incl. atomicity on failure) | ✅ |
+| FR-02 | Default `Development` + `Production` environments | 4 | `apps/api/test/workspaces.e2e-spec.ts`, `persistence.int-spec.ts` | ✅ |
+| FR-03 | Secure SDK key per environment (`ff_live_` / `ff_test_`) | 4 | `apps/api/src/environments/sdk-key.spec.ts`, `apps/api/test/workspaces.e2e-spec.ts` | ✅ |
+| FR-04 | Store only SHA-256 of SDK key; show raw key once | 4 | `apps/api/test/workspaces.e2e-spec.ts` (DB row holds only the hash; list endpoints never return keys) | ✅ |
+| FR-05 | Revoke & regenerate SDK key | 4 | `apps/api/test/workspaces.e2e-spec.ts` (old key rejected immediately) | ✅ |
 | FR-10 | Create flag (key, name, description, isEnabled, rollout, rules) | 3, 6 | `apps/api/test/persistence.int-spec.ts` (defaults, unique key per environment, CHECK on rollout and key format) | 🟡 DB constraints ✅; API in phase 6 |
 | FR-11 | Paginated list + search | 6 | — | ⬜ |
 | FR-12 | Update flag configuration | 6 | — | ⬜ |
@@ -32,7 +32,7 @@ Status: ⬜ planned · 🟡 in progress · ✅ implemented & tested · ⚠️ ch
 | FR-30 | Immutable audit entry on every flag mutation | 3, 6 | `apps/api/test/persistence.int-spec.ts` (UPDATE / DELETE / TRUNCATE rejected by trigger) | 🟡 DB immutability ✅; entry on every mutation in phase 6 |
 | FR-31 | Audit entry fields | 6 | — | ⬜ |
 | FR-32 | JWT-authenticated management API | 6 | — | ⬜ |
-| FR-33 | SDK key auth via `X-Environment-Key` | 5 | — | ⬜ |
+| FR-33 | SDK key auth via `X-Environment-Key` | 4, 5 | `apps/api/test/workspaces.e2e-spec.ts` (lookup by hash) | 🟡 guard in phase 5 |
 
 ### Non-Functional Requirements
 
@@ -47,9 +47,9 @@ Status: ⬜ planned · 🟡 in progress · ✅ implemented & tested · ⚠️ ch
 
 | ID | Requirement (short) | Phase | Test(s) | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| SEC-01 | SDK keys never stored in plain text | 4 | — | ⬜ |
+| SEC-01 | SDK keys never stored in plain text | 4 | `sdk-key.spec.ts`, `apps/api/test/workspaces.e2e-spec.ts` | ✅ log redaction in phase 5 |
 | SEC-02 | HTTP-only, SameSite=Lax JWT cookie, 12 h TTL | 6 | — | ⬜ |
-| SEC-03 | Zod validation, structured `400` | 5 | — | ⬜ |
+| SEC-03 | Zod validation, structured `400` | 4, 5 | `zod-validation.pipe.spec.ts`, `apps/api/test/workspaces.e2e-spec.ts` | 🟡 evaluate endpoint in phase 5 |
 | SEC-04 | 1000 req/min per SDK key, token bucket | 5 | — | ⬜ |
 
 ### Acceptance Criteria

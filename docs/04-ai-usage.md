@@ -73,6 +73,15 @@ I own the problem, requirements, architecture, and every decision; AI is used as
 | Kept tool safety guards in place. | When Prisma blocked `migrate reset` for AI agents, the test setup was redesigned around `migrate deploy` with a `_test`-only guard instead of bypassing the protection. | Tests can never reset a non-test database |
 | Reviewed the ORM version trade-off and approved Prisma 6 over 7. | Proposed the options: v7 needs a driver adapter and extra config and targets ESM; v6 fits the CommonJS NestJS build. | Decision recorded in design §2 |
 
+### Phase 4 — Workspaces, Environments & SDK Keys
+
+| What I did | How AI was used | Outcome |
+| :--- | :--- | :--- |
+| Specified the security model for SDK keys in the SRS and design: environment prefixes, SHA-256-only storage, raw key shown once, instant revocation (FR-03 – FR-05, SEC-01). | Implemented key generation (256-bit, `base64url`), hashing, rotation and lookup by hash. | Keys verified never to reach the database or list endpoints |
+| Required the workspace and its environments to be created atomically (design §3). | Wrapped creation in one transaction and wrote a test that injects a failure and checks nothing is left behind. | Atomicity proven, not assumed |
+| Approved moving the validation pipe from phase 5 to phase 4, where the first request body appears. | Proposed the change and updated `PLAN.md`. | Plan stays accurate |
+| Kept time under test control via the `Clock` rule. | e2e tests use `FakeClock`, so `createdAt` values and ordering are asserted exactly. | Deterministic timestamps in tests |
+
 ---
 
 ## 3. Where AI Added the Most Value
