@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { ApiError } from './api/client';
 import { Shell } from './layout/Shell';
+import { FlagEditorPage } from './pages/FlagEditorPage';
 import { FlagsPage } from './pages/FlagsPage';
 import { HomeRedirect } from './pages/HomeRedirect';
 import { LoginPage } from './pages/LoginPage';
@@ -27,6 +28,7 @@ const router = createBrowserRouter([
     element: <Shell />,
     children: [
       { path: 'flags', element: <FlagsPage /> },
+      { path: 'flags/:flagId', element: <FlagEditorPage /> },
     ],
   },
   { path: '*', element: <HomeRedirect /> },
