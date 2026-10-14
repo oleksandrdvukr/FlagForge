@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Project Name** | FlagForge — Feature Flag & Dynamic Config Engine |
-| **Document Version** | 1.3.1 |
+| **Document Version** | 1.3.2 |
 | **Status** | Approved |
 
 ---
@@ -35,9 +35,9 @@ This document specifies the software requirements for **FlagForge**, a B2B SaaS 
 
 | Term | Definition |
 | :--- | :--- |
-| **Workspace** | Top-level tenant isolating all environments, feature flags, users, and configuration settings. |
+| **Workspace** | Top-level tenant isolating its environments, feature flags, and audit history. |
 | **Environment** | A deployment stage within a Workspace (e.g., `Development`, `Production`) with its own SDK keys. |
-| **Feature Flag** | A decision point in application code that dynamically evaluates to a boolean or variation payload. |
+| **Feature Flag** | A decision point in application code that dynamically evaluates to a boolean (`true`/`false`) in v1; multivariate payloads are deferred (§10, Open Question 1). |
 | **Evaluation Context** | JSON payload sent by client applications containing a `userId` and contextual `attributes`. |
 | **Targeting Rule** | A conditional rule mapping context attributes to a flag evaluation result (`true` or `false`). |
 | **Percentage Rollout** | A deterministic 0–100% allocation strategy using context hashing without mutating state. |
@@ -108,7 +108,7 @@ This document specifies the software requirements for **FlagForge**, a B2B SaaS 
 | :--- | :--- | :--- | :--- |
 | 1. **Master Switch** | `flag.isEnabled == false` | `false` | `DISABLED` |
 | 2. **Targeting Rules** | First rule (in order) that matches the context | `rule.value` | `TARGETING_MATCH` |
-| 3. **Percentage Rollout** | `hash(userId + ":" + flagKey) % 100 < percentageRollout` | `true` | `PERCENTAGE_ROLLOUT` |
+| 3. **Percentage Rollout** | `bucket(userId, flagKey) < percentageRollout`, with `bucket` as defined in §5 | `true` | `PERCENTAGE_ROLLOUT` |
 | 4. **Fallback** | None of the above | `false` | `DEFAULT` |
 
 | ID | Requirement |
@@ -171,7 +171,7 @@ flowchart TD
 
   HasMoreRules -- No --> CheckUserId{userId provided?}
   CheckUserId -- No --> ResNoUser["Return value: false, reason: 'MISSING_USER_ID'"]
-  CheckUserId -- Yes --> ComputeHash["bucket = SHA256(userId + ':' + flagKey) % 100"]
+  CheckUserId -- Yes --> ComputeHash["bucket = first 4 bytes of SHA256(userId + ':' + flagKey), unsigned big-endian, % 100"]
 
   ComputeHash --> RolloutCheck{bucket < percentageRollout?}
   RolloutCheck -- Yes --> ResRolloutTrue["Return value: true, reason: 'PERCENTAGE_ROLLOUT'"]
@@ -226,6 +226,7 @@ erDiagram
   workspaces ||--o{ environments : "contains"
   environments ||--o{ feature_flags : "owns"
   environments ||--o{ audit_logs : "logs"
+  feature_flags ||--o{ audit_logs : "history"
 ```
 
 **Constraints:**
@@ -281,7 +282,7 @@ erDiagram
 
 ### AC-03: Disabled Master Switch
 
-> **Traces to:** FR-21, FR-22
+> **Traces to:** FR-21
 
 - **Given** a flag `dark-mode` with `isEnabled = false`, `percentageRollout = 100%`, and matching targeting rules
 - **When** the Client API evaluates a context for any user
@@ -308,3 +309,4 @@ erDiagram
 | 2026-10-14 | 1.2.1 | AC-01: state the expected bucket (28) and expected value explicitly; add the strict-boundary case | Oleksandr Mushynski |
 | 2026-10-14 | 1.3.0 | SEC-04: rate limit configurable via `RATE_LIMIT_PER_MINUTE` (default 1000/min), `429` + `Retry-After`; NFR-01: 500 req/s is an aggregate load spread across SDK keys | Oleksandr Mushynski |
 | 2026-10-14 | 1.3.1 | FR-30: "deleted" → "archived" to match soft delete (v1.1.0); FR-31: list the allowed `action` values | Oleksandr Mushynski |
+| 2026-10-14 | 1.3.2 | Review fixes, no behavior change: Glossary matches v1 scope (no users, boolean flags only); §5 and FR-21 define `bucket` precisely (first 4 bytes, unsigned big-endian), as AC-01 references; §6 shows the `feature_flags` → `audit_logs` relation; AC-03 traces to FR-21 only | Oleksandr Mushynski |
