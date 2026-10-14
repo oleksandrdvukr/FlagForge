@@ -5,7 +5,7 @@ Implementation plan for FlagForge v1. Source of truth: [`docs/01-srs.md`](./docs
 ## Rules
 
 - Work strictly phase by phase. A phase is **done** when its exit criteria pass.
-- After each phase: `pnpm lint` + `pnpm test` → short summary → **stop and wait for approval** (including approval of the listed commits).
+- After each phase: `pnpm lint` + `pnpm test` → update [`docs/03-validation.md`](./docs/03-validation.md) (matrix status & tests) and [`docs/04-ai-usage.md`](./docs/04-ai-usage.md) → short summary → **stop and wait for approval** (including approval of the listed commits).
 - Small Conventional Commits, never squashed. Docs commits come **before** code commits.
 - If implementation contradicts the SRS: stop, describe the conflict, propose a change, and after approval commit it as `docs(srs): ...` with a change log entry.
 - Test names reference requirement IDs, e.g. `it('FR-21: returns DISABLED when master switch is off')`.
@@ -14,7 +14,7 @@ Implementation plan for FlagForge v1. Source of truth: [`docs/01-srs.md`](./docs
 
 | Phase | Name | Status |
 | :--- | :--- | :--- |
-| 0 | Design artifacts (ADRs, OpenAPI) | ⬜ |
+| 0 | Design artifacts (ADRs, OpenAPI) | ✅ |
 | 1 | Monorepo scaffold & CI | ⬜ |
 | 2 | Evaluation engine (pure domain) | ⬜ |
 | 3 | Persistence | ⬜ |
