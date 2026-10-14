@@ -3,4 +3,5 @@
 export const API_PREFIX = '/api/v1';
 
 export * from './evaluation';
+export * from './flags';
 export * from './workspaces';
