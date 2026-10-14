@@ -1,11 +1,39 @@
-import { API_PREFIX } from '@flagforge/shared';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { createBrowserRouter, RouterProvider } from 'react-router';
+import { ApiError } from './api/client';
+import { Shell } from './layout/Shell';
+import { HomeRedirect } from './pages/HomeRedirect';
+import { LoginPage } from './pages/LoginPage';
+import { NewWorkspacePage } from './pages/NewWorkspacePage';
 
-// Placeholder shell; dashboard screens are built in phase 7 (see PLAN.md).
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Client errors (401/404) won't fix themselves; only retry transient failures.
+      retry: (count, error) => !(error instanceof ApiError && error.status < 500) && count < 2,
+      refetchOnWindowFocus: true,
+    },
+  },
+});
+
+const router = createBrowserRouter([
+  { path: '/login', element: <LoginPage /> },
+  { path: '/', element: <HomeRedirect /> },
+  { path: '/workspaces/new', element: <NewWorkspacePage /> },
+  { path: '/w/:workspaceId', element: <HomeRedirect /> },
+  {
+    path: '/w/:workspaceId/e/:environmentId',
+    element: <Shell />,
+    children: [
+    ],
+  },
+  { path: '*', element: <HomeRedirect /> },
+]);
+
 export function App() {
   return (
-    <main>
-      <h1>FlagForge</h1>
-      <p>Dashboard coming soon. API: {API_PREFIX}</p>
-    </main>
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
   );
 }
