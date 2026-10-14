@@ -6,7 +6,7 @@
     "moduleResolution": "Bundler",
     "jsx": "react-jsx",
     "noEmit": true,
-    "types": ["vite/client"],
+    "types": ["vite/client", "jest"],
     "paths": {
       "@flagforge/shared": ["../../packages/shared/src"]
     }
