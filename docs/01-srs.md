@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Project Name** | FlagForge — Feature Flag & Dynamic Config Engine |
-| **Document Version** | 1.3.0 |
+| **Document Version** | 1.3.1 |
 | **Status** | Approved |
 
 ---
@@ -121,8 +121,8 @@ This document specifies the software requirements for **FlagForge**, a B2B SaaS 
 
 | ID | Requirement |
 | :--- | :--- |
-| **FR-30** | The system shall record an immutable Audit Log entry whenever a flag is created, modified, or deleted. |
-| **FR-31** | An Audit Log entry shall store: `id`, `environmentId`, `flagId`, `action`, `actorId`, `previousState` (JSON), `newState` (JSON), and `timestamp`. |
+| **FR-30** | The system shall record an immutable Audit Log entry whenever a flag is created, modified, or archived. |
+| **FR-31** | An Audit Log entry shall store: `id`, `environmentId`, `flagId`, `action` (`CREATED`, `UPDATED` or `ARCHIVED`), `actorId`, `previousState` (JSON, empty for `CREATED`), `newState` (JSON), and `timestamp`. |
 | **FR-32** | The system shall authenticate management API requests using signed JWT sessions. |
 | **FR-33** | The system shall authenticate Evaluation API requests using Environment SDK Keys passed in the `X-Environment-Key` HTTP header. |
 
@@ -307,3 +307,4 @@ erDiagram
 | 2026-10-14 | 1.2.0 | §4.5: flag lifecycle state machine (Disabled / Enabled / Archived) | Oleksandr Mushynski |
 | 2026-10-14 | 1.2.1 | AC-01: state the expected bucket (28) and expected value explicitly; add the strict-boundary case | Oleksandr Mushynski |
 | 2026-10-14 | 1.3.0 | SEC-04: rate limit configurable via `RATE_LIMIT_PER_MINUTE` (default 1000/min), `429` + `Retry-After`; NFR-01: 500 req/s is an aggregate load spread across SDK keys | Oleksandr Mushynski |
+| 2026-10-14 | 1.3.1 | FR-30: "deleted" → "archived" to match soft delete (v1.1.0); FR-31: list the allowed `action` values | Oleksandr Mushynski |
