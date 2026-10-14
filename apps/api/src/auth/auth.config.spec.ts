@@ -20,8 +20,16 @@ describe('authConfigFromEnv', () => {
     expect(authConfigFromEnv({ ...valid, NODE_ENV: 'production' }).secureCookies).toBe(true);
   });
 
+  it('SEC-02: COOKIE_SECURE overrides the default (e.g. production over plain HTTP)', () => {
+    expect(
+      authConfigFromEnv({ ...valid, NODE_ENV: 'production', COOKIE_SECURE: 'false' }).secureCookies,
+    ).toBe(false);
+    expect(authConfigFromEnv({ ...valid, COOKIE_SECURE: 'true' }).secureCookies).toBe(true);
+  });
+
   it.each([
     [{ ...valid, JWT_SECRET: 'short' }, 'JWT_SECRET'],
+    [{ ...valid, COOKIE_SECURE: 'yes' }, 'COOKIE_SECURE'],
     [{ ...valid, ADMIN_EMAIL: 'nope' }, 'ADMIN_EMAIL'],
     [{ ...valid, ADMIN_PASSWORD_HASH: 'plain-text-password' }, 'ADMIN_PASSWORD_HASH'],
     [{ ...valid, ADMIN_PASSWORD_HASH: '' }, 'ADMIN_PASSWORD_HASH'],

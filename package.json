@@ -7,7 +7,7 @@
   },
   "scripts": {
     "build": "pnpm -r build",
-    "dev": "pnpm -r --parallel dev",
+    "dev": "pnpm --filter @flagforge/shared build && pnpm --parallel --filter \"./apps/*\" dev",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "typecheck": "pnpm -r typecheck",

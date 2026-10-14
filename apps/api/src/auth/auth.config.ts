@@ -11,13 +11,14 @@ const authEnvSchema = z.object({
     .string()
     .regex(/^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/, 'ADMIN_PASSWORD_HASH must be a bcrypt hash'),
   NODE_ENV: z.string().optional(),
+  COOKIE_SECURE: z.enum(['true', 'false']).optional(),
 });
 
 export interface AuthConfig {
   jwtSecret: string;
   adminEmail: string;
   adminPasswordHash: string;
-  /** `Secure` cookie flag; on in production. */
+  /** `Secure` cookie flag: `COOKIE_SECURE` if set, otherwise on in production. */
   secureCookies: boolean;
 }
 
@@ -30,11 +31,11 @@ export function authConfigFromEnv(env: NodeJS.ProcessEnv = process.env): AuthCon
     const problems = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`);
     throw new Error(`Invalid auth configuration — ${problems.join('; ')}`);
   }
-  const { JWT_SECRET, ADMIN_EMAIL, ADMIN_PASSWORD_HASH, NODE_ENV } = result.data;
+  const { JWT_SECRET, ADMIN_EMAIL, ADMIN_PASSWORD_HASH, NODE_ENV, COOKIE_SECURE } = result.data;
   return {
     jwtSecret: JWT_SECRET,
     adminEmail: ADMIN_EMAIL.toLowerCase(),
     adminPasswordHash: ADMIN_PASSWORD_HASH,
-    secureCookies: NODE_ENV === 'production',
+    secureCookies: COOKIE_SECURE ? COOKIE_SECURE === 'true' : NODE_ENV === 'production',
   };
 }
