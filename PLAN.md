@@ -20,7 +20,7 @@ Implementation plan for FlagForge v1. Source of truth: [`docs/01-srs.md`](./docs
 | 3 | Persistence | ✅ |
 | 4 | Workspaces, environments & SDK keys | ✅ |
 | 5 | Evaluation API | ✅ |
-| 6 | Auth, flags & audit API | ⬜ |
+| 6 | Auth, flags & audit API | ✅ |
 | 7 | Dashboard | ⬜ |
 | 8 | Packaging & demo | ⬜ |
 | 9 | Validation & retrospective | ⬜ |
@@ -147,9 +147,10 @@ Implementation plan for FlagForge v1. Source of truth: [`docs/01-srs.md`](./docs
 **Exit criteria:** tests per FR; JWT expiry tested with `FakeClock`; failed mutation leaves no audit row.
 
 **Commits:**
-1. `feat(api): add admin jwt authentication`
-2. `feat(api): add feature flags crud with archive`
-3. `feat(api): add audit logging for flag mutations`
+1. `feat(shared): add auth, flag and audit log schemas`
+2. `feat(api): add admin jwt authentication`
+3. `feat(api): add feature flags crud with audit logging` (flags and audit share one transaction, so they ship together)
+4. `test(api): add auth, flags and audit e2e tests`
 
 ---
 

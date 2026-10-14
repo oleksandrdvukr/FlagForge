@@ -91,6 +91,16 @@ I own the problem, requirements, architecture, and every decision; AI is used as
 | Insisted that FR-24 ("zero writes") be proven, not assumed. | Recorded every database operation during evaluation; verified the check by injecting a write, which the test caught. | FR-24 enforced by a test |
 | Kept conflicts between requirements as my decision (per `CLAUDE.md`). | Surfaced that NFR-01 (500 req/s) cannot be load-tested through one key under SEC-04 (1000/min), and offered three options. | I chose a configurable limit (`RATE_LIMIT_PER_MINUTE`, default 1000/min) and defined NFR-01 as aggregate load → SRS v1.3.0, ADR-0005 amended |
 
+### Phase 6 — Auth, Flags & Audit API
+
+| What I did | How AI was used | Outcome |
+| :--- | :--- | :--- |
+| Defined the admin model (ADR-0006) and session rules in the SRS (FR-32, SEC-02). | Implemented login/logout, the JWT cookie and a global deny-by-default guard; every management route is tested to require a session. | Forgetting a decorator cannot expose an endpoint |
+| Required the `Clock` rule to cover time-dependent security code. | Noticed that the JWT library reads system time and set `iat`/`exp` from `Clock` instead. | Session expiry tested at the exact 12-hour boundary |
+| Specified that every flag change is audited (FR-30) and that the audit log is part of the same change. | Implemented flag CRUD with archive and audit entries in one transaction; tests inject a failure to prove rollback. | No change without an audit entry, and vice versa |
+| Specified that each audit entry stores the previous and the new state (FR-31). | Found that simultaneous updates could record the same previous state; added a row lock and a test that fails without it. | Audit history stays accurate under concurrent edits |
+| Approved the phase exit criteria in `PLAN.md`. | Verified the full scenario on a running server with `curl`: log in → create flag → evaluate → kill-switch → audit. | Kill-switch effective on the very next request |
+
 ---
 
 ## 3. Where AI Added the Most Value
@@ -107,6 +117,7 @@ I own the problem, requirements, architecture, and every decision; AI is used as
 | AI wanted to proceed with commits and the next phase on its own. | Introduced an explicit approval gate for every commit. |
 | Generated OpenAPI contained a schema error. | Caught by the Redocly validator I approved for CI. |
 | A generated e2e test helper used a default parameter, so "no header" silently sent the header. | Caught by the failing test; the helper was fixed instead of weakening the assertion. |
+| A generated test helper awaited a login request in the middle of building another request, closing its test server. | Diagnosed from the failure and fixed the helper ordering. |
 
 ---
 

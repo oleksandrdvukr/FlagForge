@@ -351,7 +351,7 @@ The logical model is defined in [SRS §6](./01-srs.md#6-data-model-er-diagram). 
 | `audit_logs` | `CHECK (action IN ('CREATED', 'UPDATED', 'ARCHIVED'))` | Actions match the flag lifecycle (SRS §4.5) |
 | `feature_flags` | `CHECK (key ~ '^[a-z0-9_-]{3,64}$')` | Defense in depth for FR-10 |
 
-**Transactions:** every flag mutation and its audit entry are written in one Prisma interactive transaction. `previousState` / `newState` are full flag snapshots (JSONB); `performed_at` is set from the injected `Clock`.
+**Transactions:** every flag mutation and its audit entry are written in one Prisma interactive transaction. Updates and archives first take a row lock (`SELECT … FOR UPDATE`) so concurrent changes serialize and each audit entry records the true previous state. `previousState` / `newState` are full flag snapshots (JSONB); `performed_at` is set from the injected `Clock`.
 
 **Migrations:** Prisma migrations are committed to the repo and applied automatically on container start (`prisma migrate deploy`).
 
@@ -364,8 +364,9 @@ The logical model is defined in [SRS §6](./01-srs.md#6-data-model-er-diagram). 
 | SDK key generation | `ff_live_` (Production) / `ff_test_` (Development) + 32 bytes from `crypto.randomBytes`, base64url-encoded. | FR-03 |
 | SDK key storage | Only `sha256(rawKey)` hex is stored. Raw key returned once in the create/rotate response and never logged. | FR-04, SEC-01 |
 | SDK key rotation | Rotation replaces the hash atomically; the old key stops working immediately. | FR-05 |
-| Admin authentication | Single bootstrap admin from env (`ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH` — bcrypt). | FR-32 |
-| Session | HS256 JWT (`JWT_SECRET`), cookie `ff_session`: `HttpOnly`, `SameSite=Lax`, `Secure` in production, 12 h TTL. | SEC-02 |
+| Admin authentication | Single bootstrap admin from env (`ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH` — bcrypt), validated at startup. A wrong email is checked against a dummy hash so both failure paths take the same time and return the same message. | FR-32 |
+| Route protection | Global `AdminGuard`, deny by default; only `/healthz`, `/readyz`, `/auth/*` and `/evaluate` (SDK key) are `@Public()`. | FR-32 |
+| Session | HS256 JWT (`JWT_SECRET`), cookie `ff_session`: `HttpOnly`, `SameSite=Lax`, `Secure` in production, 12 h TTL. `iat`/`exp` are set from the injected `Clock` and verified against it. | SEC-02 |
 | Input validation | Global `ZodValidationPipe`; schemas live in `packages/shared`. | SEC-03 |
 | Rate limiting | In-memory token bucket per environment: capacity `RATE_LIMIT_PER_MINUTE` (default 1000), refill `RATE_LIMIT_PER_MINUTE / 60` tokens per second, time from `Clock`. Valid because v1 is single-instance. | SEC-04 |
 | Logging | Request logs exclude `X-Environment-Key`, cookies, and request bodies of `/auth/*`. | SEC-01 |
