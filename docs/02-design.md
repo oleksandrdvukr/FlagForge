@@ -3,8 +3,8 @@
 | | |
 | :--- | :--- |
 | **Project Name** | FlagForge — Feature Flag & Dynamic Config Engine |
-| **Document Version** | 1.1.0 |
-| **Status** | Current — describes v1 as built ([change log](#14-change-log)) |
+| **Document Version** | 1.2.0 |
+| **Status** | Current — describes v1 as built ([change log](#15-change-log)) |
 | **Related** | [`00-problem.md`](./00-problem.md) · [`01-srs.md`](./01-srs.md) |
 
 ---
@@ -24,7 +24,8 @@
 11. [Testing Strategy](#11-testing-strategy)
 12. [Architecture Decision Records](#12-architecture-decision-records)
 13. [Open Questions (SRS Gaps)](#13-open-questions-srs-gaps)
-14. [Change Log](#14-change-log)
+14. [Observability & Scalability](#14-observability--scalability)
+15. [Change Log](#15-change-log)
 
 ---
 
@@ -474,7 +475,42 @@ All gaps found while writing this design were resolved in SRS v1.1.0:
 
 ---
 
-## 14. Change Log
+## 14. Observability & Scalability
+
+v1 targets one instance and one administrator (SRS §1.2, C-1 – C-3). This section records what that design gives an operator today, what it deliberately leaves out, and what would have to change first.
+
+### 14.1 Observability in v1
+
+| Signal | What it shows | Where |
+| :--- | :--- | :--- |
+| Liveness | The process answers HTTP, without touching the database. | `GET /healthz` (NFR-03) |
+| Readiness | PostgreSQL answers `SELECT 1`; `503` otherwise. Used by the Docker `HEALTHCHECK`. | `GET /readyz` (NFR-03), §10 |
+| Errors | Stack traces of unexpected `5xx` errors, written to stdout by the error filter. No request logs, so SDK keys, cookies and passwords never reach the logs. | §8 (Logging) |
+| Configuration history | Who changed which flag, when, and the full before / after state. | Audit log (FR-30, FR-31) |
+| Evaluation outcome | Every response carries `reason`, so a caller can see why a user got a value. | FR-21 |
+| Performance | p50 / p95 / p99 latency under a defined load, on demand. | `scripts/load-test.mjs` (§11) |
+
+**Not in v1, and why.** Metrics (evaluation rate, latency histograms, `429` count), structured JSON logs and tracing are not required by the SRS, and the success criterion does not depend on them. Per-flag evaluation counts would also need somewhere to accumulate: writing them to the database would break FR-24 (zero writes per evaluation), so they belong in an in-memory metrics endpoint (e.g. Prometheus) rather than in PostgreSQL. This is next-iteration item 5 in the [validation report](./03-validation.md#4-what-remains--next-iteration); the operational risk of running without it is listed in [§6 there](./03-validation.md#6-risks-toward-production).
+
+### 14.2 Scalability
+
+**Current capacity.** One instance meets NFR-01 with a p95 of about 5 ms at 500 req/s ([validation](./03-validation.md#non-functional-requirements)). Each evaluation costs two indexed point reads (§5.6), so the first levers are vertical: `DATABASE_POOL_SIZE`, CPU for the Node process, and PostgreSQL resources.
+
+**What is already stateless.** Sessions are signed JWTs (any instance with the same `JWT_SECRET` can verify them), there is no in-process flag cache (ADR-0003), and migrations run with `prisma migrate deploy`, which takes a database lock, so several instances starting at once do not apply a migration twice.
+
+**What blocks horizontal scaling.**
+
+| Blocker | Effect with N instances | Path |
+| :--- | :--- | :--- |
+| In-memory rate limiter per process (ADR-0005) | Each SDK key gets N × `RATE_LIMIT_PER_MINUTE`. | Shared counter in PostgreSQL or Redis. |
+| PostgreSQL on every evaluation (ADR-0003) | All instances share one database; it stays the bottleneck and the single point of failure. Read replicas would add replication lag, which delays the kill-switch. | SDK with a local flag cache, refreshed by streaming or polling, with change notifications (e.g. PostgreSQL `LISTEN/NOTIFY`). |
+| Append-only audit log | Grows without bound; `TRUNCATE` is blocked by design (§7). | Monthly partitions and a retention policy with export. |
+
+These are next-iteration items 1 and 6 in the [validation report](./03-validation.md#4-what-remains--next-iteration). In v1 they are accepted because the product is single-instance by constraint (SRS §1.2, C-2).
+
+---
+
+## 15. Change Log
 
 | Date | Version | Summary of Changes | Author |
 | :--- | :--- | :--- | :--- |
@@ -486,3 +522,4 @@ All gaps found while writing this design were resolved in SRS v1.1.0:
 | 2026-10-14 | 1.0.0 | Phase 7: SPA fallback, dashboard logic tests, bucket grid, playground SDK key, Production safety (§2, §9) | Oleksandr Mushynski |
 | 2026-10-14 | 1.0.0 | Phase 8: Docker image, demo defaults, `COOKIE_SECURE`, `WEB_DIST_PATH` (§10) | Oleksandr Mushynski |
 | 2026-10-14 | 1.1.0 | Repository review: versioning and this change log introduced (earlier rows were edits made under 1.0.0); §1 two reads per evaluation; §6.4 `400` for malformed JSON, `413`; §8 actual logging behavior and response headers; §9 how forms validate; §10 database port; §11 load-test tool | Oleksandr Mushynski |
+| 2026-10-14 | 1.2.0 | §14 observability and scalability: signals available in v1, what is left out and why, blockers for horizontal scaling and their path | Oleksandr Mushynski |
