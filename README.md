@@ -31,6 +31,18 @@ Open **http://localhost:3000** and sign in with the demo admin:
 
 > These are demo credentials baked into `docker-compose.yml`. Before any real use, set your own `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH` and `JWT_SECRET` in a `.env` file (see [Configuration](#configuration)).
 
+### Load sample flags
+
+With the stack running:
+
+```bash
+./scripts/seed.sh
+```
+
+It creates the workspace **Acme Store** with flags for each scenario in the SRS — a gradual rollout (`new-checkout`, 30%), a targeted beta (`beta-dashboard`, `plan = enterprise`) and a switched-off flag (`dark-mode`) — checks each one through the evaluation API, and prints both SDK keys **in full**, together with a dashboard link and a ready-to-run `curl`. Paste the Development key into the *Playground* to try the flags in the browser.
+
+If you set your own admin in `.env`, pass the credentials: `ADMIN_EMAIL=… ADMIN_PASSWORD=… ./scripts/seed.sh`.
+
 ### Run the demo
 
 With the stack running:
@@ -139,6 +151,7 @@ pnpm dev                          # API on :3000, dashboard on :5173 (proxies /a
 | `pnpm typecheck` | TypeScript across all packages |
 | `pnpm build` | Builds `shared`, `api` and `web` |
 | `pnpm lint:api-contract` | Validates the OpenAPI contract |
+| `./scripts/seed.sh` | Sample workspace with flags for the SRS scenarios; prints its SDK keys |
 | `node scripts/load-test.mjs` | NFR-01 load test: 500 req/s across 40 SDK keys, reports p50/p95/p99 |
 
 Tests reference requirement IDs (`FR-21: …`, `SEC-04: …`), so every requirement can be traced to the tests that prove it — see the [traceability matrix](docs/03-validation.md#1-traceability-matrix).
@@ -150,7 +163,7 @@ apps/api          NestJS: management API, evaluation API, serves the dashboard
 apps/web          React + Vite dashboard
 packages/shared   Zod schemas and types shared by api and web
 docs/             problem, SRS, design, ADRs, OpenAPI, validation, AI usage, retrospective
-scripts/          demo.sh, load-test.mjs
+scripts/          seed.sh, demo.sh, load-test.mjs
 ```
 
 ---

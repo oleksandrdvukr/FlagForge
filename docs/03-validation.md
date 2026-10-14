@@ -85,6 +85,7 @@ Status: ⬜ planned · 🟡 in progress · ✅ implemented & tested · ⚠️ ch
 | Audit logs | 7 | `apps/web/src/lib/diff.spec.ts`; manual walkthrough shows per-field before → after | ✅ |
 | Kill-switch | 7 | Manual walkthrough: toggle in the flags table and editor | ✅ |
 | Success criterion: `docker compose up` + `scripts/demo.sh` | 8 | Isolated compose project with no `.env`: migrations applied on start, login, 50% flag, 100 identical evaluations, 98/200 users on, kill-switch applied | ✅ |
+| Sample data for reviewers (`scripts/seed.sh`) | 9 | Run against a clean database: creates *Acme Store* with flags for UC-01 – UC-03, checks AC-01 – AC-03 through the evaluation API, prints both SDK keys; the printed `curl` returns `TARGETING_MATCH`; refuses to reuse an existing workspace name | ✅ |
 | SPA served by the API (ADR-0007) | 7, 9 | `apps/api/test/spa.e2e-spec.ts`: dashboard routes return `index.html`, unknown `/api/*` paths stay JSON 404, security headers set | ✅ |
 
 ## 2. Requirement Changes
