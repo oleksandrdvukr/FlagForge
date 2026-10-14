@@ -1,3 +1,6 @@
+# `docker compose up` starts FlagForge with demo credentials (see README).
+# Override any value in a `.env` file next to this one; change the secrets before real use.
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -16,7 +19,25 @@ services:
       timeout: 3s
       retries: 10
 
-  # The FlagForge app service is added in phase 8 (see PLAN.md).
+  app:
+    build: .
+    image: flagforge:local
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - '${APP_PORT:-3000}:3000'
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-flagforge}:${POSTGRES_PASSWORD:-flagforge}@postgres:5432/${POSTGRES_DB:-flagforge}
+      DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-10}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-1000}
+      JWT_SECRET: ${JWT_SECRET:-demo-only-jwt-secret-change-me-before-real-use}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@flagforge.local}
+      # Default = bcrypt hash of "flagforge-demo" ($$ escapes $ in compose files).
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:-$$2b$$12$$D1a9YUELlee7lETFaRdGUOQ9.lHXW0jsoXYivSzAkvbWKIKvE4PE6}
+      # Secure cookies need HTTPS; localhost is treated as secure by browsers.
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
 
 volumes:
   pgdata:
