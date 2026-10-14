@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Project Name** | FlagForge — Feature Flag & Dynamic Config Engine |
-| **Document Version** | 1.1.0 |
+| **Document Version** | 1.2.0 |
 | **Status** | Approved |
 
 ---
@@ -125,6 +125,29 @@ This document specifies the software requirements for **FlagForge**, a B2B SaaS 
 | **FR-31** | An Audit Log entry shall store: `id`, `environmentId`, `flagId`, `action`, `actorId`, `previousState` (JSON), `newState` (JSON), and `timestamp`. |
 | **FR-32** | The system shall authenticate management API requests using signed JWT sessions. |
 | **FR-33** | The system shall authenticate Evaluation API requests using Environment SDK Keys passed in the `X-Environment-Key` HTTP header. |
+
+### 4.5 Flag Lifecycle (State Machine)
+
+```mermaid
+stateDiagram-v2
+  [*] --> Disabled : create (FR-10, isEnabled = false)
+  Disabled --> Enabled : isEnabled = true (FR-12)
+  Enabled --> Disabled : isEnabled = false — kill-switch (FR-12)
+  Disabled --> Disabled : update rollout / rules (FR-12)
+  Enabled --> Enabled : update rollout / rules (FR-12)
+  Disabled --> Archived : archive (FR-13)
+  Enabled --> Archived : archive (FR-13)
+  Archived --> [*]
+```
+
+| State | `isEnabled` | `archivedAt` | Evaluation result |
+| :--- | :--- | :--- | :--- |
+| **Disabled** | `false` | `NULL` | `value: false`, `reason: "DISABLED"` |
+| **Enabled** | `true` | `NULL` | Targeting rules → percentage rollout → default (FR-21) |
+| **Archived** | any | set | `404 Flag Not Found` |
+
+- Every transition, including self-transitions, writes an Audit Log entry (FR-30).
+- `Archived` is terminal in v1: archived flags cannot be restored or edited, and their `key` stays reserved within the environment.
 
 ---
 
@@ -280,3 +303,4 @@ erDiagram
 | :--- | :--- | :--- | :--- |
 | 2026-10-14 | 1.0.0 | Initial SRS draft for FlagForge core engine | Oleksandr Mushynski |
 | 2026-10-14 | 1.1.0 | FR-13: soft delete via `archived_at`; §3: single env-configured admin, `actorId` = admin email; §6: `UNIQUE (environment_id, key)` and `archived_at` column | Oleksandr Mushynski |
+| 2026-10-14 | 1.2.0 | §4.5: flag lifecycle state machine (Disabled / Enabled / Archived) | Oleksandr Mushynski |
