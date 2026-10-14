@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import type { CreateWorkspaceResponse, TargetingRule } from '@flagforge/shared';
 import type { PrismaClient } from '@prisma/client';
 import request from 'supertest';
+import { loginCookie } from './auth';
 
 export interface SeededWorkspace {
   workspaceId: string;
@@ -12,8 +13,11 @@ export interface SeededWorkspace {
 
 /** Creates a workspace through the public API and returns its environments and raw SDK keys. */
 export async function seedWorkspace(app: INestApplication): Promise<SeededWorkspace> {
+  // Log in first: building a supertest request and awaiting another one mid-chain closes its server.
+  const cookie = await loginCookie(app);
   const res = await request(app.getHttpServer())
     .post('/api/v1/workspaces')
+    .set('Cookie', cookie)
     .send({ name: `ws-${randomUUID()}` })
     .expect(201);
   const { workspace, environments } = res.body as CreateWorkspaceResponse;
@@ -33,7 +37,7 @@ export interface FlagSeed {
   archivedAt?: Date | null;
 }
 
-/** Inserts a flag directly; the flags API arrives in phase 6. */
+/** Inserts a flag directly, bypassing the API (and its audit log) for evaluation-focused tests. */
 export function seedFlag(prisma: PrismaClient, environmentId: string, flag: FlagSeed) {
   return prisma.featureFlag.create({
     data: {

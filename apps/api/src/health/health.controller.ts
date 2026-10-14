@@ -1,5 +1,6 @@
 import { Controller, Get, HttpCode, HttpStatus, Res } from '@nestjs/common';
 import type { Response } from 'express';
+import { Public } from '../auth/public.decorator';
 import { PrismaService } from '../common/prisma/prisma.service';
 
 export interface HealthResponse {
@@ -7,6 +8,7 @@ export interface HealthResponse {
 }
 
 @Controller()
+@Public()
 export class HealthController {
   constructor(private readonly prisma: PrismaService) {}
 

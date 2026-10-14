@@ -4,12 +4,15 @@ import {
   type EvaluationRequest,
   type EvaluationResponse,
 } from '@flagforge/shared';
+import { Public } from '../auth/public.decorator';
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe';
 import { EvaluationService } from './evaluation.service';
 import { RateLimitGuard } from './rate-limit.guard';
 import { SdkKeyGuard, type SdkRequest } from './sdk-key.guard';
 
+/** Authenticated by SDK key instead of an admin session. */
 @Controller()
+@Public()
 export class EvaluationController {
   constructor(private readonly evaluation: EvaluationService) {}
 

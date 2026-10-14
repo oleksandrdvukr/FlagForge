@@ -4,6 +4,7 @@ import request from 'supertest';
 import { CLOCK, FakeClock } from '../src/common/clock/clock';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import { RATE_LIMIT_CONFIG } from '../src/evaluation/rate-limit.guard';
+import { loginCookie } from './utils/auth';
 import { createTestApp } from './utils/create-test-app';
 import { seedFlag, seedWorkspace, type SeededWorkspace } from './utils/seed';
 
@@ -103,8 +104,10 @@ describe('POST /api/v1/evaluate (e2e)', () => {
 
     it('FR-05: a rotated-away key is rejected immediately', async () => {
       const other = await seedWorkspace(app);
+      const cookie = await loginCookie(app);
       await request(app.getHttpServer())
         .post(`/api/v1/environments/${other.production.id}/sdk-key/rotate`)
+        .set('Cookie', cookie)
         .expect(200);
       await evaluate({ flagKey: 'on-for-all' }, other.production.sdkKey).expect(401);
     });

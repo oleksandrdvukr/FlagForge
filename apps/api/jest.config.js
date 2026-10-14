@@ -10,6 +10,7 @@ module.exports = {
   },
   // Resets the `<db>_test` database and applies all migrations once per run.
   globalSetup: '<rootDir>/test/setup/global-setup.ts',
+  setupFiles: ['<rootDir>/test/setup/auth-env.ts'],
   collectCoverage: true,
   collectCoverageFrom: ['src/**/*.ts', '!src/main.ts', '!src/**/index.ts'],
   coverageReporters: ['text-summary', 'lcov'],

@@ -5,6 +5,7 @@ import request from 'supertest';
 import { CLOCK, FakeClock } from '../src/common/clock/clock';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import { EnvironmentsService } from '../src/environments/environments.service';
+import { loginCookie } from './utils/auth';
 import { createTestApp } from './utils/create-test-app';
 
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
@@ -12,18 +13,29 @@ const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
 describe('Workspaces & environments (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
+  let cookie: string;
   const clock = new FakeClock('2026-10-14T10:00:00.000Z');
 
   beforeAll(async () => {
     app = await createTestApp((b) => b.overrideProvider(CLOCK).useValue(clock));
     prisma = app.get(PrismaService);
+    cookie = await loginCookie(app);
   });
 
   afterAll(async () => {
     await app.close();
   });
 
-  const http = () => request(app.getHttpServer());
+  /** Authenticated as the admin, like the dashboard. */
+  const http = () => {
+    const agent = request(app.getHttpServer());
+    const withCookie = <T extends { set(k: string, v: string): T }>(r: T) =>
+      r.set('Cookie', cookie);
+    return {
+      get: (url: string) => withCookie(agent.get(url)),
+      post: (url: string) => withCookie(agent.post(url)),
+    };
+  };
 
   async function createWorkspace(name = `Acme ${randomUUID()}`): Promise<CreateWorkspaceResponse> {
     const res = await http().post('/api/v1/workspaces').send({ name }).expect(201);
@@ -90,9 +102,12 @@ describe('Workspaces & environments (e2e)', () => {
 
   describe('GET /api/v1/workspaces', () => {
     it('FR-01: lists workspaces newest first, without SDK keys', async () => {
+      // Moving the clock years ahead expires the session (SEC-02), so log in again each time.
       clock.set('2030-01-01T00:00:00.000Z');
+      cookie = await loginCookie(app);
       const older = await createWorkspace();
       clock.set('2030-01-02T00:00:00.000Z');
+      cookie = await loginCookie(app);
       const newer = await createWorkspace();
 
       const res = await http().get('/api/v1/workspaces').expect(200);
