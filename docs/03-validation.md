@@ -10,11 +10,11 @@ This document compares what was built against [`01-srs.md`](./01-srs.md): which 
 | | |
 | :--- | :--- |
 | Requirements implemented and tested | **29 / 29** — 18 FR, 4 NFR, 4 SEC, 3 AC; plus all 7 dashboard capabilities from the v1 scope |
-| Automated tests | 261 (shared 37 · api 203 · web 21), green in CI on every push |
+| Automated tests | 269 (shared 37 · api 209 · web 23), green in CI on every push |
 | Acceptance criteria | AC-01 – AC-03 pass end to end over HTTP against PostgreSQL |
 | NFR-01 | p95 ≈ 5 ms at 500 req/s across 40 SDK keys (target < 15 ms) |
 | Success criterion | `docker compose up` + `./scripts/demo.sh` pass on a clean stack |
-| SRS revisions driven by design and implementation | 1.0.0 → 1.3.1 (5 revisions, all in the change log) |
+| SRS revisions driven by design, implementation and review | 1.0.0 → 1.3.2 (6 revisions, all in the change log) |
 | Requirements dropped | None |
 
 ---
@@ -42,7 +42,7 @@ Status: ⬜ planned · 🟡 in progress · ✅ implemented & tested · ⚠️ ch
 | FR-23 | Operators `EQUALS`, `NOT_EQUALS`, `IN`, `CONTAINS`, `GREATER_THAN` | 2 | `apps/api/src/evaluation/engine/operators.spec.ts`, `packages/shared/src/evaluation.spec.ts` | ✅ |
 | FR-24 | Stateless, deterministic, zero DB writes | 2, 5 | `evaluate.spec.ts` (pure engine); `apps/api/test/evaluate.e2e-spec.ts` records every DB operation during evaluation and asserts no writes (verified by injecting a write, which the test caught) | ✅ |
 | FR-30 | Immutable audit entry on every flag mutation | 3, 6 | `persistence.int-spec.ts` (trigger); `apps/api/test/flags.e2e-spec.ts` (entry per mutation, rollback on failure, correct previous state under concurrency — verified to fail without the row lock) | ✅ |
-| FR-31 | Audit entry fields | 6 | `apps/api/test/flags.e2e-spec.ts` (all fields, full before/after snapshots, filter by flag, pagination) | ✅ |
+| FR-31 | Audit entry fields | 6, 9 | `apps/api/test/flags.e2e-spec.ts` (all fields, full before/after snapshots incl. `archivedAt` on archive, filter by flag, pagination) | ✅ |
 | FR-32 | JWT-authenticated management API | 6 | `apps/api/test/auth.e2e-spec.ts` (login, generic 401, tampered/forged tokens, logout, every management route requires a session); `auth.config.spec.ts` | ✅ |
 | FR-33 | SDK key auth via `X-Environment-Key` | 4, 5 | `apps/api/test/evaluate.e2e-spec.ts` (missing / unknown / rotated key → 401; key scoped to its environment) | ✅ |
 
@@ -61,7 +61,7 @@ Status: ⬜ planned · 🟡 in progress · ✅ implemented & tested · ⚠️ ch
 | :--- | :--- | :--- | :--- | :--- |
 | SEC-01 | SDK keys never stored in plain text | 4, 5 | `sdk-key.spec.ts`, `apps/api/test/workspaces.e2e-spec.ts`; request headers/bodies are never logged (`AllExceptionsFilter` logs only 5xx stacks) | ✅ |
 | SEC-02 | HTTP-only, SameSite=Lax JWT cookie, 12 h TTL | 6 | `apps/api/test/auth.e2e-spec.ts` (cookie attributes; valid at 11:59:59, expired at 12:00:00 via `FakeClock`) | ✅ |
-| SEC-03 | Zod validation, structured `400` | 4, 5 | `zod-validation.pipe.spec.ts`, `all-exceptions.filter.spec.ts`, `workspaces.e2e-spec.ts`, `apps/api/test/evaluate.e2e-spec.ts` | ✅ |
+| SEC-03 | Zod validation, structured `400` | 4, 5, 9 | `zod-validation.pipe.spec.ts`, `all-exceptions.filter.spec.ts`, `workspaces.e2e-spec.ts`, `apps/api/test/evaluate.e2e-spec.ts`; `apps/api/test/spa.e2e-spec.ts` (malformed JSON → `400`, body over 100 kB → `413`, with the dashboard served as in the Docker image) | ✅ |
 | SEC-04 | Per-SDK-key token bucket, `RATE_LIMIT_PER_MINUTE` (default 1000/min) | 5 | `token-bucket.spec.ts` (1000/min, refill, cap, per key, `Retry-After`, env parsing with fail-fast); `apps/api/test/evaluate.e2e-spec.ts` (429 + recovery, per environment, invalid keys consume no tokens) | ✅ |
 
 ### Acceptance Criteria
@@ -85,7 +85,7 @@ Status: ⬜ planned · 🟡 in progress · ✅ implemented & tested · ⚠️ ch
 | Audit logs | 7 | `apps/web/src/lib/diff.spec.ts`; manual walkthrough shows per-field before → after | ✅ |
 | Kill-switch | 7 | Manual walkthrough: toggle in the flags table and editor | ✅ |
 | Success criterion: `docker compose up` + `scripts/demo.sh` | 8 | Isolated compose project with no `.env`: migrations applied on start, login, 50% flag, 100 identical evaluations, 98/200 users on, kill-switch applied | ✅ |
-| SPA served by the API (ADR-0007) | 7 | Manual check: dashboard routes return `index.html`; `/api/*` unknown paths stay JSON 404 | ✅ |
+| SPA served by the API (ADR-0007) | 7, 9 | `apps/api/test/spa.e2e-spec.ts`: dashboard routes return `index.html`, unknown `/api/*` paths stay JSON 404, security headers set | ✅ |
 
 ## 2. Requirement Changes
 
@@ -100,6 +100,7 @@ Changes I made to the SRS after validating it against the design and implementat
 | 1.2.1 | AC-01 states the expected bucket and value; boundary case added | Phase 2: AC-01 only held because of a specific hash output | Expected bucket `28` written into the criterion; `bucket == percentageRollout` → `DEFAULT` |
 | 1.3.0 | SEC-04 limit configurable (`RATE_LIMIT_PER_MINUTE`, default 1000/min); NFR-01 load is aggregate across SDK keys | Phase 5: NFR-01 and SEC-04 conflicted for a single key; 1000/min is too low for some legitimate server-side clients | Configurable limit with a conservative default |
 | 1.3.1 | FR-30 says "archived" instead of "deleted"; FR-31 lists the `action` values | Phase 9 review: wording still described hard delete after v1.1.0 introduced soft delete | Terminology aligned with SRS §4.5 |
+| 1.3.2 | Glossary matches v1 scope; `bucket` defined precisely in §5 and FR-21; §6 shows the flag → audit relation; AC-03 traces to FR-21 only | Final repository review: AC-01 referenced a §5 detail that §5 did not state; glossary still mentioned users and variation payloads | Wording fixed; no behavior change |
 
 ---
 
@@ -118,6 +119,12 @@ Changes I made to the SRS after validating it against the design and implementat
 | 7 | Because only SDK key hashes are stored (FR-04), the dashboard cannot evaluate on the user's behalf without the raw key. | The playground cannot work out of the box. | The playground asks for the environment's key (kept in `sessionStorage` for the tab). Design §9 updated. |
 | 8 | Default `Secure` cookies in production break login on plain-HTTP self-hosted deployments (e.g. an internal IP). | Admins could not sign in on such a deployment. | `COOKIE_SECURE` override (default unchanged); compose demo uses `false`, README recommends `true` behind HTTPS. |
 | 8 | `prisma` was a dev dependency, but `migrate deploy` runs in the production container on start. | The production image could not apply migrations. | Moved `prisma` to dependencies. |
+| 9 | **With the dashboard served, a malformed JSON body returned `404` instead of `400`.** `@nestjs/serve-static` registers an error handler that turns every error on excluded paths (`/api/*`) into a 404. E2e tests ran without a built dashboard, and in a `TestingModule` serve-static serves nothing at all, so no test exercised the production setup. | SEC-03 was violated in the Docker image only; oversized bodies were affected the same way. | The app registers the JSON parser and its error handler itself (`400` / `413` in the standard error format). `spa.e2e-spec.ts` boots the app through `NestFactory` exactly like `main.ts`; it fails without the fix. |
+| 9 | Toggling the kill-switch in the flag editor re-mounted the form and silently discarded unsaved rule or rollout edits. | An admin could lose changes without noticing. | The form refreshes from the server only when it holds no unsaved edits. |
+| 9 | Browsers expose Web Crypto only in secure contexts, so on a plain-HTTP deployment (supported via `COOKIE_SECURE=false`) the playground reported a successful evaluation as failed. | The playground was unusable on such deployments. | The bucket view is skipped with a note; the server result is always shown. |
+| 9 | The playground listed only the first 20 flags. | Flags beyond the first page could not be evaluated from the dashboard. | Free-text flag key with search-as-you-type suggestions. |
+| 9 | The `ARCHIVED` audit snapshot had no `archivedAt`, so its before/after diff showed nothing. | The audit view could not show when a flag was archived. | `archivedAt` added to the flag snapshot (OpenAPI updated); the audit view shows it. |
+| 9 | Compose published PostgreSQL on `5432` on all interfaces with the demo password. | `docker compose up` failed on machines with a local PostgreSQL, and the database was reachable from the network. | Published on `127.0.0.1:55432` by default (`POSTGRES_PORT`). |
 
 ## 4. What Remains / Next Iteration
 

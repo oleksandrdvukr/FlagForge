@@ -124,6 +124,7 @@ I own the problem, requirements, architecture, and every decision; AI is used as
 | :--- | :--- | :--- |
 | Required a final check of every requirement against the implementation. | Finalized the traceability matrix, risks and roadmap; found that FR-30 still said "deleted" after soft delete was introduced. | SRS v1.3.1; 29 / 29 requirements traced to tests |
 | Rewrote the retrospective draft in my own words: what worked best for me, my process change (threat modeling with STRIDE), the v2 priorities and my takeaway on AI-assisted engineering. | Drafted the initial structure from the project history; checked my edits against the repository and flagged statements that did not match the code, which I then corrected. | `05-retrospective.md` |
+| Asked for a final review of the whole repository from a reviewer's point of view, and decided to fix every finding. | Reviewed docs, code, infrastructure and history; found a `404` for malformed JSON when the dashboard is served, three dashboard defects, an archive snapshot without `archivedAt`, PostgreSQL published on all interfaces, and inconsistencies in the SRS and design; fixed each with a test where testable and verified the dashboard in Chrome. | SRS v1.3.2, design v1.1.0; 269 tests |
 
 ---
 
@@ -145,6 +146,7 @@ I own the problem, requirements, architecture, and every decision; AI is used as
 | A generated e2e test helper used a default parameter, so "no header" silently sent the header. | Caught by the failing test; the helper was fixed instead of weakening the assertion. |
 | A generated test helper awaited a login request in the middle of building another request, closing its test server. | Diagnosed from the failure and fixed the helper ordering. |
 | The generated demo script stored timings in `SECONDS`, a bash built-in, so every latency read as 0 ms. | Spotted the implausible output and renamed the variable. |
+| Generated e2e tests ran without the dashboard, so a `404` for malformed JSON in the Docker setup went unnoticed through phases 5 – 8. | Found in the final review I requested; a new test boots the app exactly like `main.ts` and fails without the fix. |
 
 ---
 

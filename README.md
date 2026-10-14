@@ -163,7 +163,7 @@ The work followed the SDLC end to end, and the [commit history](https://github.c
 2. **Requirements** → [01-srs.md](docs/01-srs.md): every requirement has an ID (`FR-xx`, `NFR-xx`, `SEC-xx`) used in test names.
 3. **Design** → [02-design.md](docs/02-design.md), [ADRs](docs/adr/README.md), [OpenAPI contract](docs/api/openapi.yaml) — written before any code.
 4. **Implementation** in eight gated phases (1 – 8 of [PLAN.md](PLAN.md)): each ended with lint and tests passing, an updated validation report, and a review before commit.
-5. **Validation** → [03-validation.md](docs/03-validation.md): 29 / 29 requirements traced to tests. Implementation fed back into the requirements: the SRS went from 1.0.0 to 1.3.1, each change recorded in its change log.
+5. **Validation** → [03-validation.md](docs/03-validation.md): 29 / 29 requirements traced to tests. Implementation fed back into the requirements: the SRS went from 1.0.0 to 1.3.2, each change recorded in its change log.
 6. **Next iteration** → [05-retrospective.md](docs/05-retrospective.md): what worked, what I would change, the v2 roadmap.
 
 How AI was used, and where it was corrected, is documented in [04-ai-usage.md](docs/04-ai-usage.md).
