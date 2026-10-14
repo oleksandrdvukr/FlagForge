@@ -12,4 +12,14 @@ describe('bucket (browser port)', () => {
   ])('ADR-0004: bucket(%p, %p) matches the server: %p', async (userId, flagKey, expected) => {
     await expect(bucket(userId, flagKey)).resolves.toBe(expected);
   });
+
+  it('returns null without Web Crypto (plain HTTP outside localhost)', async () => {
+    const original = Object.getOwnPropertyDescriptor(globalThis, 'crypto')!;
+    Object.defineProperty(globalThis, 'crypto', { value: {}, configurable: true });
+    try {
+      await expect(bucket('usr_1001', 'new-checkout')).resolves.toBeNull();
+    } finally {
+      Object.defineProperty(globalThis, 'crypto', original);
+    }
+  });
 });

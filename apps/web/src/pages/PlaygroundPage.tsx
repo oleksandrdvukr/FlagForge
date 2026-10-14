@@ -40,9 +40,11 @@ export function PlaygroundPage() {
   ]);
   const [result, setResult] = useState<EvaluationResponse | null>(null);
   const [userBucket, setUserBucket] = useState<number | null>(null);
+  const [bucketUnavailable, setBucketUnavailable] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const flags = useFlags(environment.id, '', 1);
-  const flag = flags.data?.items.find((f) => f.key === flagKey);
+  // Suggestions follow what is typed (search by key or name), so every flag is reachable.
+  const flags = useFlags(environment.id, flagKey.trim(), 1);
+  const flag = flags.data?.items.find((f) => f.key === flagKey.trim());
 
   async function run(e: FormEvent) {
     e.preventDefault();
@@ -51,15 +53,19 @@ export function PlaygroundPage() {
     const attributes = Object.fromEntries(
       rows.filter((r) => r.name).map((r) => [r.name, toValue(r)]),
     );
+    const key = flagKey.trim();
     try {
       setResult(
         await evaluateWithKey<EvaluationResponse>(sdkKey, {
-          flagKey,
+          flagKey: key,
           ...(userId ? { userId } : {}),
           attributes,
         }),
       );
-      setUserBucket(userId ? await bucket(userId, flagKey) : null);
+      // Display only; the result above comes from the server either way.
+      const b = userId ? await bucket(userId, key) : null;
+      setUserBucket(b);
+      setBucketUnavailable(Boolean(userId) && b === null);
     } catch (err) {
       setResult(null);
       setError(
@@ -98,19 +104,22 @@ export function PlaygroundPage() {
           </label>
           <label className="field">
             <span className="field-label">Flag</span>
-            <select
+            <input
               className="input mono"
               required
+              list="playground-flags"
+              placeholder="Type to search flags"
+              autoComplete="off"
               value={flagKey}
               onChange={(e) => setFlagKey(e.target.value)}
-            >
-              <option value="">Choose a flag</option>
+            />
+            <datalist id="playground-flags">
               {flags.data?.items.map((f) => (
                 <option key={f.id} value={f.key}>
-                  {f.key}
+                  {f.name}
                 </option>
               ))}
-            </select>
+            </datalist>
           </label>
           <label className="field">
             <span className="field-label">User ID</span>
@@ -200,9 +209,11 @@ export function PlaygroundPage() {
                     disabled={!flag.isEnabled}
                   />
                   <p className="small muted">
-                    {userBucket === null
-                      ? `${flag.percentageRollout}% rollout.`
-                      : `${userId} is in bucket ${userBucket} of a ${flag.percentageRollout}% rollout.`}
+                    {userBucket !== null
+                      ? `${userId} is in bucket ${userBucket} of a ${flag.percentageRollout}% rollout.`
+                      : bucketUnavailable
+                        ? `${flag.percentageRollout}% rollout. The user’s bucket is shown only over HTTPS or on localhost.`
+                        : `${flag.percentageRollout}% rollout.`}
                   </p>
                 </>
               )}
