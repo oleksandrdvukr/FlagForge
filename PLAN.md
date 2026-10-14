@@ -22,7 +22,7 @@ Implementation plan for FlagForge v1. Source of truth: [`docs/01-srs.md`](./docs
 | 5 | Evaluation API | ✅ |
 | 6 | Auth, flags & audit API | ✅ |
 | 7 | Dashboard | ✅ |
-| 8 | Packaging & demo | ⬜ |
+| 8 | Packaging & demo | ✅ |
 | 9 | Validation & retrospective | ⬜ |
 
 ---
@@ -182,9 +182,12 @@ Implementation plan for FlagForge v1. Source of truth: [`docs/01-srs.md`](./docs
 **Exit criteria:** on a clean machine `docker compose up` + `./scripts/demo.sh` pass; p95 < 15 ms (NFR-01).
 
 **Commits:**
-1. `build: add multi-stage dockerfile and app service`
-2. `feat: add demo script`
-3. `docs: add readme`
+1. `feat(api): add COOKIE_SECURE override and ship prisma for runtime migrations`
+2. `build: add multi-stage dockerfile and app service`
+3. `ci: build the docker image`
+4. `feat: add demo script`
+5. `feat: add nfr-01 load test script`
+6. `docs: add readme`
 
 ---
 

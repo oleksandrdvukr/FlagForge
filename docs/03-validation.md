@@ -38,9 +38,9 @@ Status: ⬜ planned · 🟡 in progress · ✅ implemented & tested · ⚠️ ch
 
 | ID | Requirement (short) | Phase | Verification | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| NFR-01 | Evaluate p95 < 15 ms @ 500 req/s | 5, 8 | Indicative (phase 5, sequential, 500 requests, local Docker Postgres): p50 2.3 ms, p95 3.3 ms, p99 3.9 ms | 🟡 load test at 500 req/s in phase 8 |
+| NFR-01 | Evaluate p95 < 15 ms @ 500 req/s (aggregate across keys) | 5, 8 | `scripts/load-test.mjs` against the Docker image (open-loop, 500 req/s, 40 SDK keys, 30 s): run 1 — p50 2.79 ms, **p95 5.07 ms**, p99 54.8 ms; run 2 — p50 2.84 ms, **p95 4.83 ms**, p99 9.96 ms; 15 000+ requests, all `200` | ✅ |
 | NFR-02 | Deterministic results across restarts & nodes | 2 | `apps/api/src/evaluation/engine/bucket.spec.ts` (golden vectors computed independently in Python), `evaluate.spec.ts` | ✅ |
-| NFR-03 | `/healthz`, `/readyz` within 5 ms | 1, 3 | `apps/api/test/health.e2e-spec.ts` (200 with DB up, 503 with DB down); manual check against a real stopped container | ✅ latency measured under load in phase 8 |
+| NFR-03 | `/healthz`, `/readyz` within 5 ms | 1, 3, 8 | `health.e2e-spec.ts` (200 / 503); Docker image, 50 requests each: `/healthz` p95 2.2 ms, `/readyz` p95 4.3 ms (one outlier at 14.9 ms) | ✅ at p95 |
 | NFR-04 | No client context stored during evaluation | 2, 5 | Pure engine; zero DB writes (`apps/api/test/evaluate.e2e-spec.ts`); the only in-memory state is the rate limiter's token count per environment | ✅ |
 
 ### Security Requirements
@@ -72,6 +72,7 @@ Status: ⬜ planned · 🟡 in progress · ✅ implemented & tested · ⚠️ ch
 | Evaluation testing playground | 7 | Manual walkthrough: real `POST /evaluate`, `usr_1001` highlighted in bucket 28 (matches AC-01); `apps/web/src/lib/bucket.spec.ts` pins the browser port to the server's golden vectors | ✅ |
 | Audit logs | 7 | `apps/web/src/lib/diff.spec.ts`; manual walkthrough shows per-field before → after | ✅ |
 | Kill-switch | 7 | Manual walkthrough: toggle in the flags table and editor | ✅ |
+| Success criterion: `docker compose up` + `scripts/demo.sh` | 8 | Isolated compose project with no `.env`: migrations applied on start, login, 50% flag, 100 identical evaluations, 98/200 users on, kill-switch applied | ✅ |
 | SPA served by the API (ADR-0007) | 7 | Manual check: dashboard routes return `index.html`; `/api/*` unknown paths stay JSON 404 | ✅ |
 
 ## 2. Requirement Changes
@@ -96,6 +97,8 @@ Changes I made to the SRS after validating it against the design and implementat
 | 2 | **AC-01 silently depends on the hash output.** It expects `reason: "PERCENTAGE_ROLLOUT"` for `usr_1001` at 30%, which is only true because `bucket("usr_1001", "new-checkout") = 28`. With a different user ID the same scenario would return `DEFAULT`. | The acceptance criterion is correct today but brittle and not self-explanatory. | Bucket value pinned by a golden-vector test, so AC-01 cannot break unnoticed. SRS v1.2.1: AC-01 now states the expected bucket (28), the expected value, and the strict boundary case. |
 | 3 | The design specified an `UPDATE`/`DELETE` trigger for audit immutability, but PostgreSQL `TRUNCATE` bypasses row-level triggers. | Audit history could still be wiped with one statement. | Added a statement-level `BEFORE TRUNCATE` trigger; design §7 updated; covered by a test. |
 | 3 | Prisma refuses `migrate reset` when run by an AI agent (safety guard against destroying a developer database). | The planned test setup could not use `reset`. | Kept the guard intact. Test setup creates `<db>_test`, drops only its schema, and runs `migrate deploy`; it refuses any database whose name does not end with `_test`. |
+| 8 | Default `Secure` cookies in production break login on plain-HTTP self-hosted deployments (e.g. an internal IP). | Admins could not sign in on such a deployment. | `COOKIE_SECURE` override (default unchanged); compose demo uses `false`, README recommends `true` behind HTTPS. |
+| 8 | `prisma` was a dev dependency, but `migrate deploy` runs in the production container on start. | The production image could not apply migrations. | Moved `prisma` to dependencies. |
 | 7 | Because only SDK key hashes are stored (FR-04), the dashboard cannot evaluate on the user's behalf without the raw key. | The playground cannot work out of the box. | The playground asks for the environment's key (kept in `sessionStorage` for the tab). Design §9 updated. |
 | 6 | `jsonwebtoken` reads the system clock for `iat`/`exp`, which would bypass the `Clock` rule and make expiry untestable. | Session expiry could not be tested deterministically. | `iat`/`exp` set explicitly from `Clock`; verification uses `clockTimestamp` from `Clock`. Expiry tested at the exact 12 h boundary. |
 | 6 | Design did not cover concurrent updates: two simultaneous PATCHes could both record the same `previousState`. | Audit history could misstate what changed. | Row lock (`SELECT … FOR UPDATE`) before each update/archive; design §7 updated; concurrency test fails without the lock. |
@@ -120,6 +123,9 @@ _To be filled in phase 9. Known candidates from the ADRs:_
 - Dashboard has no rendered-component or browser e2e tests; its logic is unit-tested and the UI was verified manually.
 - Dashboard fonts load from Google Fonts; an air-gapped deployment falls back to system fonts.
 - The browser bucket port duplicates the server algorithm for display; it is pinned by golden-vector tests but is a second copy to keep in sync.
+- `docker-compose.yml` ships demo credentials and `COOKIE_SECURE=false` so the stack starts with no setup; operators must override them.
+- The Docker image is ~760 MB (Debian base + Prisma engines); not optimized for size.
+- p99 latency under load had one run at 54.8 ms (likely JIT warm-up); tail latency was not investigated further.
 
 ## 6. Risks Toward Production
 

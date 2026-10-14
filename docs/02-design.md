@@ -407,7 +407,8 @@ flowchart LR
   APP --> PG
 ```
 
-- **Dockerfile:** multi-stage — build `shared`, `web`, `api`; final image contains only the compiled API, the built SPA, and production dependencies.
+- **Dockerfile:** multi-stage on `node:24-bookworm-slim` (Debian rather than Alpine: Prisma engines and the native `bcrypt` module work without musl workarounds) — build `shared`, `web`, `api`; final image contains only the compiled API, the built SPA, the migrations and production dependencies, and runs as the unprivileged `node` user with a `/readyz` healthcheck.
+- **Demo defaults:** `docker-compose.yml` ships demo credentials so `docker compose up` works with no setup; every value can be overridden from `.env`, and the README tells operators to replace them.
 - **Startup:** `prisma migrate deploy` → start NestJS. Compose uses a Postgres healthcheck so the app waits for the DB.
 
 | Variable | Required | Default | Description |
@@ -419,6 +420,8 @@ flowchart LR
 | `ADMIN_PASSWORD_HASH` | yes | — | bcrypt hash of the admin password |
 | `PORT` | no | `3000` | HTTP port |
 | `RATE_LIMIT_PER_MINUTE` | no | `1000` | Evaluation requests per minute per SDK key (SEC-04) |
+| `COOKIE_SECURE` | no | `true` if `NODE_ENV=production` | `Secure` flag of the session cookie; `false` only for plain-HTTP deployments |
+| `WEB_DIST_PATH` | no | `apps/web/dist` | Location of the built dashboard (ADR-0007) |
 | `NODE_ENV` | no | `production` | Enables `Secure` cookies in production |
 
 ---

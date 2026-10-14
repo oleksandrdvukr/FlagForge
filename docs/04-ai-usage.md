@@ -109,6 +109,15 @@ I own the problem, requirements, architecture, and every decision; AI is used as
 | Kept rollout determinism central to the product (ADR-0004). | Proposed visualizing the rollout as the 100 real buckets and highlighting the evaluated user's bucket; the browser port is pinned to the server's golden vectors. | `usr_1001` lands in bucket 28 in the UI, exactly as in AC-01 |
 | Required the phase to be verified in a real browser. | Walked through login → flags → editor → audit → key rotation → playground in Chrome and fixed a layout defect found on screen. | Verified visually, not only by tests |
 
+### Phase 8 — Packaging & Demo
+
+| What I did | How AI was used | Outcome |
+| :--- | :--- | :--- |
+| Set the success criterion in the problem definition: `docker compose up`, log in, create a 50% flag, prove determinism and < 15 ms with one script. | Wrote the multi-stage Dockerfile, the compose app service with migrations on start, and `scripts/demo.sh` using only bash and curl. | Verified on an isolated stack with no local configuration |
+| Decided how NFR-01 is measured (aggregate load across keys, SRS v1.3.0). | Wrote an open-loop load generator with no dependencies and ran it twice against the Docker image. | p95 ≈ 5 ms at 500 req/s, all responses 200 |
+| Decided to keep demo credentials in `docker-compose.yml` so the success criterion holds with a single `docker compose up`, with the README telling operators to replace them. | Laid out the trade-off (one command vs. a required `.env` step) and recorded it as accepted technical debt. | One-command start preserved |
+| Approved the exit criterion that the README and demo must work on a clean machine (`PLAN.md`). | Ran every command from the README; found and fixed `pnpm dev` not loading `.env` and a missing `--no-deps`. | README commands verified |
+
 ---
 
 ## 3. Where AI Added the Most Value
@@ -126,6 +135,7 @@ I own the problem, requirements, architecture, and every decision; AI is used as
 | Generated OpenAPI contained a schema error. | Caught by the Redocly validator I approved for CI. |
 | A generated e2e test helper used a default parameter, so "no header" silently sent the header. | Caught by the failing test; the helper was fixed instead of weakening the assertion. |
 | A generated test helper awaited a login request in the middle of building another request, closing its test server. | Diagnosed from the failure and fixed the helper ordering. |
+| The generated demo script stored timings in `SECONDS`, a bash built-in, so every latency read as 0 ms. | Spotted the implausible output and renamed the variable. |
 
 ---
 
