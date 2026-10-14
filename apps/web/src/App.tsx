@@ -7,6 +7,7 @@ import { FlagsPage } from './pages/FlagsPage';
 import { HomeRedirect } from './pages/HomeRedirect';
 import { LoginPage } from './pages/LoginPage';
 import { NewWorkspacePage } from './pages/NewWorkspacePage';
+import { PlaygroundPage } from './pages/PlaygroundPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -29,6 +30,7 @@ const router = createBrowserRouter([
     children: [
       { path: 'flags', element: <FlagsPage /> },
       { path: 'flags/:flagId', element: <FlagEditorPage /> },
+      { path: 'playground', element: <PlaygroundPage /> },
     ],
   },
   { path: '*', element: <HomeRedirect /> },
