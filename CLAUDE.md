@@ -1,0 +1,7 @@
+- Work strictly phase by phase from PLAN.md. After finishing a phase: run lint + tests, make the listed commits, print a short summary, then **STOP and wait for approval**.
+- Never squash commits. Small, logical commits using Conventional Commits (`feat:`, `fix:`, `docs:`, `test:`, `chore:`, `refactor:`). Docs commits come **BEFORE** code commits.
+- `docs/01-srs.md` is the source of truth. Every functional requirement has an ID (`FR-xx`), Non-functional (`NFR-xx`), and Security (`SEC-xx`).
+- Reference requirement IDs in test names, e.g., `it('FR-12: evaluates percentage rollout deterministically using sha256 hash')`.
+- If implementation contradicts the SRS: do **NOT** silently diverge. Stop, describe the conflict, propose an SRS change, and after approval commit it as `"docs(srs): ..."` with an entry in the SRS change log.
+- Inject time via a `Clock` interface (`{ now(): Date }`). No direct `Date.now()` or `new Date()` in domain code.
+- Do not add technologies not listed in `docs/02-design.md` without asking.
