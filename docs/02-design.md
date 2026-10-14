@@ -74,7 +74,10 @@ flowchart LR
 | Testing | Jest, Supertest | Unit, integration, and e2e tests |
 | Lint / format | ESLint, Prettier | Code quality |
 | Packaging | Docker (multi-stage), Docker Compose | Single-command deployment |
-| Workspace | npm workspaces | Monorepo for `api`, `web`, `shared` |
+| Workspace | pnpm workspaces | Monorepo for `api`, `web`, `shared` |
+| API contract | OpenAPI 3.0 (`docs/api/openapi.yaml`) | Hand-written, contract-first API specification |
+| CI | GitHub Actions | Lint, typecheck, test, build on every push / PR |
+| Contract lint | `@redocly/cli` (dev only) | Validates `docs/api/openapi.yaml` locally and in CI |
 
 **Explicitly excluded in v1:** Redis, message brokers, Kubernetes manifests, GraphQL, edge/CDN workers, external auth providers.
 
@@ -123,32 +126,42 @@ flowchart TD
 
 ```text
 flagforge/
-├── apps/
-│   ├── api/                      # NestJS application
-│   │   ├── src/
-│   │   │   ├── common/           # Clock, Zod pipe, error filter
-│   │   │   ├── auth/
-│   │   │   ├── workspaces/
-│   │   │   ├── environments/
-│   │   │   ├── flags/
-│   │   │   ├── audit/
-│   │   │   ├── evaluation/
-│   │   │   │   └── engine/       # pure domain: evaluate(), bucket(), operators
-│   │   │   ├── health/
-│   │   │   └── main.ts
-│   │   ├── prisma/
-│   │   │   ├── schema.prisma
-│   │   │   └── migrations/
-│   │   └── test/                 # e2e tests (Supertest)
-│   └── web/                      # React + Vite SPA
-├── packages/
-│   └── shared/                   # Zod schemas & types shared by api and web
-├── docs/
-├── scripts/
-│   └── demo.sh                   # success-criteria demo (curl-based)
-├── Dockerfile
-├── docker-compose.yml
-└── package.json                  # npm workspaces root
+├─ README.md                    # Product overview, quick start, demo guide, links to docs
+├─ CLAUDE.md                    # Instructions for the AI agent
+├─ PLAN.md                      # Phased execution plan
+├─ docs/
+│  ├─ 00-problem.md             # Problem definition
+│  ├─ 01-srs.md                 # SRS with FR-xx, NFR-xx, SEC-xx & change log
+│  ├─ 02-design.md              # This document
+│  ├─ adr/                      # Decision records (0001-modular-monolith.md, ...)
+│  ├─ api/openapi.yaml          # OpenAPI 3.0 specification (contract)
+│  ├─ 03-validation.md          # Traceability matrix, implemented vs changed, technical debt
+│  ├─ 04-ai-usage.md            # AI usage log (prompts, value, mistakes corrected)
+│  └─ 05-retrospective.md       # Retrospective and future roadmap
+├─ apps/
+│  ├─ api/                      # NestJS: Management API + Evaluation API + static SPA server
+│  │  ├─ src/
+│  │  │  ├─ common/             # Clock, Zod pipe, error filter
+│  │  │  ├─ auth/
+│  │  │  ├─ workspaces/
+│  │  │  ├─ environments/
+│  │  │  ├─ flags/
+│  │  │  ├─ audit/
+│  │  │  ├─ evaluation/
+│  │  │  │  └─ engine/          # pure domain: evaluate(), bucket(), operators
+│  │  │  ├─ health/
+│  │  │  └─ main.ts
+│  │  ├─ prisma/                # schema.prisma, migrations/
+│  │  └─ test/                  # e2e tests (Supertest)
+│  └─ web/                      # React + Vite dashboard (built & served by NestJS in prod)
+├─ packages/
+│  └─ shared/                   # Zod schemas, evaluation types & DTOs shared by api and web
+├─ scripts/demo.sh              # Automated evaluation & rollout verification
+├─ docker-compose.yml           # Local dev & prod stack (PostgreSQL + FlagForge app)
+├─ Dockerfile                   # Multi-stage single image build
+├─ .github/workflows/ci.yml     # CI pipeline (lint, typecheck, test, build)
+├─ .env.example
+└─ pnpm-workspace.yaml
 ```
 
 ---
@@ -418,6 +431,8 @@ Time-dependent logic (JWT expiry, rate limiting, audit timestamps) is tested wit
 ---
 
 ## 12. Architecture Decision Records
+
+Summary below; each decision has a full record (context, options, consequences) in [`docs/adr/`](./adr/).
 
 | ADR | Decision | Alternatives considered | Rationale |
 | :--- | :--- | :--- | :--- |
