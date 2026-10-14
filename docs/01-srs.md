@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Project Name** | FlagForge — Feature Flag & Dynamic Config Engine |
-| **Document Version** | 1.2.0 |
+| **Document Version** | 1.2.1 |
 | **Status** | Approved |
 
 ---
@@ -264,10 +264,11 @@ erDiagram
 
 > **Traces to:** FR-21, NFR-02
 
-- **Given** a flag `new-checkout` with `isEnabled = true` and `percentageRollout = 30%`
+- **Given** a flag `new-checkout` with `isEnabled = true`, `percentageRollout = 30%`, and no targeting rules
+- **And** `bucket = SHA256("usr_1001:new-checkout") % 100 = 28` (first 4 bytes, unsigned big-endian — see §5)
 - **When** the Client API evaluates a context with `userId = "usr_1001"` 100 consecutive times
-- **Then** all 100 evaluation responses return an identical value
-- **And** the evaluation reason is `"PERCENTAGE_ROLLOUT"`
+- **Then** all 100 evaluation responses are identical: `value: true`, `reason: "PERCENTAGE_ROLLOUT"` (because `28 < 30`)
+- **And** with `percentageRollout = 28` the same context returns `value: false`, `reason: "DEFAULT"` (boundary: `bucket < percentageRollout` is strict)
 
 ### AC-02: Targeting Rule Override
 
@@ -304,3 +305,4 @@ erDiagram
 | 2026-10-14 | 1.0.0 | Initial SRS draft for FlagForge core engine | Oleksandr Mushynski |
 | 2026-10-14 | 1.1.0 | FR-13: soft delete via `archived_at`; §3: single env-configured admin, `actorId` = admin email; §6: `UNIQUE (environment_id, key)` and `archived_at` column | Oleksandr Mushynski |
 | 2026-10-14 | 1.2.0 | §4.5: flag lifecycle state machine (Disabled / Enabled / Archived) | Oleksandr Mushynski |
+| 2026-10-14 | 1.2.1 | AC-01: state the expected bucket (28) and expected value explicitly; add the strict-boundary case | Oleksandr Mushynski |
