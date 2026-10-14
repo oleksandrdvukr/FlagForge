@@ -69,9 +69,9 @@ flowchart LR
 | ORM / migrations | Prisma 6 (`prisma-client-js`) | Type-safe DB access and SQL migrations. v6 over v7: no driver adapter or extra config needed, CommonJS-native like the NestJS build |
 | Validation | Zod | Request/response schemas, shared with the frontend (SEC-03) |
 | Auth | `@nestjs/jwt`, `bcrypt`, `cookie-parser` | Admin JWT sessions in HTTP-only cookies (FR-32, SEC-02) |
-| Static serving | `@nestjs/serve-static` | Serves the built SPA from the same process |
+| Static serving | `@nestjs/serve-static` | Serves the built SPA from the same process; unknown non-API paths fall back to `index.html` |
 | Frontend | React 19, Vite, TanStack Query, React Router | Dashboard SPA |
-| Testing | Jest, Supertest | Unit, integration, and e2e tests |
+| Testing | Jest, Supertest | Unit, integration, and e2e tests; dashboard logic (rule parsing, audit diff, bucket port) unit-tested with Jest without a DOM |
 | Lint / format | ESLint, Prettier | Code quality |
 | Packaging | Docker (multi-stage), Docker Compose | Single-command deployment |
 | Workspace | pnpm workspaces | Monorepo for `api`, `web`, `shared` |
@@ -388,6 +388,10 @@ A minimal React SPA built with Vite and served by NestJS from the same origin (n
 | Audit log | Paginated list with diff of `previousState` → `newState` |
 
 Server state is managed with TanStack Query; forms validate with the same Zod schemas as the API.
+
+- **Rollout visualization:** the rollout is drawn as the 100 deterministic buckets (10×10). The playground highlights the bucket of the evaluated user, using a Web Crypto port of `bucket()` pinned to the server's golden vectors. The server stays the source of truth for the result.
+- **Playground and SDK keys:** since only key hashes are stored (FR-04), the playground asks for the environment's raw key and keeps it in `sessionStorage` for that tab only.
+- **Production safety:** the Production environment is marked with a red rule across the workspace and red labels; archive and key rotation require an inline confirmation.
 
 ---
 

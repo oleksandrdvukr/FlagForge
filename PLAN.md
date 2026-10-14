@@ -21,7 +21,7 @@ Implementation plan for FlagForge v1. Source of truth: [`docs/01-srs.md`](./docs
 | 4 | Workspaces, environments & SDK keys | ✅ |
 | 5 | Evaluation API | ✅ |
 | 6 | Auth, flags & audit API | ✅ |
-| 7 | Dashboard | ⬜ |
+| 7 | Dashboard | ✅ |
 | 8 | Packaging & demo | ⬜ |
 | 9 | Validation & retrospective | ⬜ |
 
@@ -160,15 +160,16 @@ Implementation plan for FlagForge v1. Source of truth: [`docs/01-srs.md`](./docs
 - TanStack Query, forms validated with shared Zod schemas.
 - NestJS serves the built SPA.
 
-**Exit criteria:** manual walkthrough of the success-criteria scenario in the browser; component tests for the rule builder.
+**Exit criteria:** manual walkthrough of the success-criteria scenario in the browser; tests for the rule builder logic (parsing and validation of rules).
 
 **Commits:**
-1. `feat(web): add login and app shell`
-2. `feat(web): add flags list and kill-switch`
-3. `feat(web): add flag editor with targeting rules`
-4. `feat(web): add evaluation playground`
-5. `feat(web): add sdk keys and audit log views`
-6. `feat(api): serve dashboard spa`
+1. `feat(web): add dashboard logic for rules, audit diff and bucketing`
+2. `feat(web): add login and app shell`
+3. `feat(web): add flags list and kill-switch`
+4. `feat(web): add flag editor with targeting rules`
+5. `feat(web): add evaluation playground`
+6. `feat(web): add sdk keys and audit log views`
+7. `feat(api): serve dashboard spa`
 
 ---
 

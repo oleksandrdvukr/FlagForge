@@ -101,6 +101,14 @@ I own the problem, requirements, architecture, and every decision; AI is used as
 | Specified that each audit entry stores the previous and the new state (FR-31). | Found that simultaneous updates could record the same previous state; added a row lock and a test that fails without it. | Audit history stays accurate under concurrent edits |
 | Approved the phase exit criteria in `PLAN.md`. | Verified the full scenario on a running server with `curl`: log in → create flag → evaluate → kill-switch → audit. | Kill-switch effective on the very next request |
 
+### Phase 7 — Dashboard
+
+| What I did | How AI was used | Outcome |
+| :--- | :--- | :--- |
+| Defined the dashboard scope in the problem definition: flag creation, targeting rules, rollout slider, evaluation playground, audit logs. | Designed and built the React SPA with React Router and TanStack Query, using only technologies from the approved stack. | All scoped screens working against the real API |
+| Kept rollout determinism central to the product (ADR-0004). | Proposed visualizing the rollout as the 100 real buckets and highlighting the evaluated user's bucket; the browser port is pinned to the server's golden vectors. | `usr_1001` lands in bucket 28 in the UI, exactly as in AC-01 |
+| Required the phase to be verified in a real browser. | Walked through login → flags → editor → audit → key rotation → playground in Chrome and fixed a layout defect found on screen. | Verified visually, not only by tests |
+
 ---
 
 ## 3. Where AI Added the Most Value

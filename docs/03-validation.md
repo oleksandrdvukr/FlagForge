@@ -62,6 +62,18 @@ Status: ⬜ planned · 🟡 in progress · ✅ implemented & tested · ⚠️ ch
 
 ---
 
+### Dashboard (Scope v1: Web Dashboard)
+
+| Capability (00-problem.md) | Phase | Verification | Status |
+| :--- | :--- | :--- | :--- |
+| Flag creation | 7 | Manual walkthrough in the browser (phase 7) | ✅ |
+| Targeting rule configuration | 7 | `apps/web/src/lib/rules.spec.ts` (parsing, typing, validation messages); manual walkthrough | ✅ |
+| Percentage rollout slider | 7 | Manual walkthrough; bucket grid reflects the percentage | ✅ |
+| Evaluation testing playground | 7 | Manual walkthrough: real `POST /evaluate`, `usr_1001` highlighted in bucket 28 (matches AC-01); `apps/web/src/lib/bucket.spec.ts` pins the browser port to the server's golden vectors | ✅ |
+| Audit logs | 7 | `apps/web/src/lib/diff.spec.ts`; manual walkthrough shows per-field before → after | ✅ |
+| Kill-switch | 7 | Manual walkthrough: toggle in the flags table and editor | ✅ |
+| SPA served by the API (ADR-0007) | 7 | Manual check: dashboard routes return `index.html`; `/api/*` unknown paths stay JSON 404 | ✅ |
+
 ## 2. Requirement Changes
 
 Changes I made to the SRS after validating it against the design and implementation.
@@ -84,6 +96,7 @@ Changes I made to the SRS after validating it against the design and implementat
 | 2 | **AC-01 silently depends on the hash output.** It expects `reason: "PERCENTAGE_ROLLOUT"` for `usr_1001` at 30%, which is only true because `bucket("usr_1001", "new-checkout") = 28`. With a different user ID the same scenario would return `DEFAULT`. | The acceptance criterion is correct today but brittle and not self-explanatory. | Bucket value pinned by a golden-vector test, so AC-01 cannot break unnoticed. SRS v1.2.1: AC-01 now states the expected bucket (28), the expected value, and the strict boundary case. |
 | 3 | The design specified an `UPDATE`/`DELETE` trigger for audit immutability, but PostgreSQL `TRUNCATE` bypasses row-level triggers. | Audit history could still be wiped with one statement. | Added a statement-level `BEFORE TRUNCATE` trigger; design §7 updated; covered by a test. |
 | 3 | Prisma refuses `migrate reset` when run by an AI agent (safety guard against destroying a developer database). | The planned test setup could not use `reset`. | Kept the guard intact. Test setup creates `<db>_test`, drops only its schema, and runs `migrate deploy`; it refuses any database whose name does not end with `_test`. |
+| 7 | Because only SDK key hashes are stored (FR-04), the dashboard cannot evaluate on the user's behalf without the raw key. | The playground cannot work out of the box. | The playground asks for the environment's key (kept in `sessionStorage` for the tab). Design §9 updated. |
 | 6 | `jsonwebtoken` reads the system clock for `iat`/`exp`, which would bypass the `Clock` rule and make expiry untestable. | Session expiry could not be tested deterministically. | `iat`/`exp` set explicitly from `Clock`; verification uses `clockTimestamp` from `Clock`. Expiry tested at the exact 12 h boundary. |
 | 6 | Design did not cover concurrent updates: two simultaneous PATCHes could both record the same `previousState`. | Audit history could misstate what changed. | Row lock (`SELECT … FOR UPDATE`) before each update/archive; design §7 updated; concurrency test fails without the lock. |
 | 6 | A bcrypt hash contains `$`, which docker compose interpolates in `.env`. | The admin login would silently break in Docker. | `.env.example` documents single-quoting the hash. |
@@ -104,6 +117,9 @@ _To be filled in phase 9. Known candidates from the ADRs:_
 - No login rate limiting / lockout: the SRS does not require it; bcrypt cost 12 slows brute force but does not stop it.
 - CSRF protection relies on `SameSite=Lax` cookies and JSON-only endpoints; no CSRF token.
 - Sessions cannot be revoked server-side before expiry (stateless JWT); logout only clears the cookie.
+- Dashboard has no rendered-component or browser e2e tests; its logic is unit-tested and the UI was verified manually.
+- Dashboard fonts load from Google Fonts; an air-gapped deployment falls back to system fonts.
+- The browser bucket port duplicates the server algorithm for display; it is pinned by golden-vector tests but is a second copy to keep in sync.
 
 ## 6. Risks Toward Production
 
