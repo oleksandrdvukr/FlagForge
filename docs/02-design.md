@@ -66,7 +66,7 @@ flowchart LR
 | Runtime | Node.js 24 LTS, TypeScript (strict) | Language & runtime |
 | Backend framework | NestJS 11 | HTTP, DI, modules, guards |
 | Database | PostgreSQL 16 | Persistent storage (JSONB for rules & audit states) |
-| ORM / migrations | Prisma | Type-safe DB access and SQL migrations |
+| ORM / migrations | Prisma 6 (`prisma-client-js`) | Type-safe DB access and SQL migrations. v6 over v7: no driver adapter or extra config needed, CommonJS-native like the NestJS build |
 | Validation | Zod | Request/response schemas, shared with the frontend (SEC-03) |
 | Auth | `@nestjs/jwt`, `bcrypt`, `cookie-parser` | Admin JWT sessions in HTTP-only cookies (FR-32, SEC-02) |
 | Static serving | `@nestjs/serve-static` | Serves the built SPA from the same process |
@@ -347,7 +347,9 @@ The logical model is defined in [SRS §6](./01-srs.md#6-data-model-er-diagram). 
 | `feature_flags` | `CHECK (percentage_rollout BETWEEN 0 AND 100)` | Defense in depth for FR-10 |
 | `feature_flags` | Evaluation and listings filter `archived_at IS NULL` | Archived flags behave as not found (FR-13) |
 | `audit_logs` | `INDEX (environment_id, performed_at DESC)` | Paginated audit view |
-| `audit_logs` | `BEFORE UPDATE OR DELETE` trigger raising an exception | Enforces immutability at DB level (FR-30) |
+| `audit_logs` | `BEFORE UPDATE OR DELETE` row trigger + `BEFORE TRUNCATE` statement trigger | Enforces immutability at DB level (FR-30); `TRUNCATE` bypasses row triggers |
+| `audit_logs` | `CHECK (action IN ('CREATED', 'UPDATED', 'ARCHIVED'))` | Actions match the flag lifecycle (SRS §4.5) |
+| `feature_flags` | `CHECK (key ~ '^[a-z0-9_-]{3,64}$')` | Defense in depth for FR-10 |
 
 **Transactions:** every flag mutation and its audit entry are written in one Prisma interactive transaction. `previousState` / `newState` are full flag snapshots (JSONB); `performed_at` is set from the injected `Clock`.
 

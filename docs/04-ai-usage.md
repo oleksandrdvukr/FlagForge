@@ -63,6 +63,16 @@ I own the problem, requirements, architecture, and every decision; AI is used as
 | Required that tests prove behaviour, not just execute code. | Golden vectors were computed with an independent implementation (Python `hashlib`), not with the code under test. Two deliberate mutations (`<` → `<=`, swapped hash input) were each caught by the suite. | Tests verified to detect regressions |
 | Reviewed the results against the SRS. | Surfaced that AC-01 only holds because `usr_1001` lands in bucket 28 — recorded in the validation report. | Requirement weakness documented instead of hidden |
 
+### Phase 3 — Persistence
+
+| What I did | How AI was used | Outcome |
+| :--- | :--- | :--- |
+| Decided that audit immutability and data rules must be enforced by the database itself, not only by application code (design §7, ADR-0002). | Wrote the Prisma schema, the initial migration with CHECK constraints, and the immutability trigger migration. | Constraints verified by 14 integration tests on real PostgreSQL |
+| Required the `Clock` abstraction from `CLAUDE.md` to be available before any time-dependent code. | Implemented `Clock`, `SystemClock`, `FakeClock`. | Ready for JWT expiry, rate limiting and audit timestamps |
+| Reviewed the trigger design. | While testing, found that `TRUNCATE` bypasses row-level triggers and added a statement-level trigger. | Gap closed and recorded in the validation report |
+| Kept tool safety guards in place. | When Prisma blocked `migrate reset` for AI agents, the test setup was redesigned around `migrate deploy` with a `_test`-only guard instead of bypassing the protection. | Tests can never reset a non-test database |
+| Reviewed the ORM version trade-off and approved Prisma 6 over 7. | Proposed the options: v7 needs a driver adapter and extra config and targets ESM; v6 fits the CommonJS NestJS build. | Decision recorded in design §2 |
+
 ---
 
 ## 3. Where AI Added the Most Value
