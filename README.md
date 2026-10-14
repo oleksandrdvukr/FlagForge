@@ -108,7 +108,7 @@ Set these in a `.env` file next to `docker-compose.yml` (copy [`.env.example`](.
 | `COOKIE_SECURE` | `false` | `true` when served over HTTPS (recommended in production) |
 | `RATE_LIMIT_PER_MINUTE` | `1000` | Evaluations per minute per SDK key |
 | `DATABASE_POOL_SIZE` | `10` | PostgreSQL connection pool size |
-| `APP_PORT` / `POSTGRES_PORT` | `3000` / `5432` | Host ports |
+| `APP_PORT` / `POSTGRES_PORT` | `3000` / `55432` | Host ports; PostgreSQL is published on `127.0.0.1` only |
 
 Generate a password hash:
 
