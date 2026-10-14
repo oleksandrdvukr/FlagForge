@@ -1,0 +1,6 @@
+pnpm-lock.yaml
+dist/
+coverage/
+# Hand-formatted documentation
+*.md
+docs/
