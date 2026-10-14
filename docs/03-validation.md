@@ -1,9 +1,21 @@
 # Validation Report
 
 **Author:** Oleksandr Mushynski  
-**Status:** Living document — updated at the end of every phase in [`PLAN.md`](../PLAN.md); finalized in phase 9.
+**Status:** Final for v1 (phase 9). Updated at the end of every phase in [`PLAN.md`](../PLAN.md).
 
 This document compares what was built against [`01-srs.md`](./01-srs.md): which requirements are covered and by which tests, what changed along the way, and what remains.
+
+## Summary
+
+| | |
+| :--- | :--- |
+| Requirements implemented and tested | **29 / 29** — 18 FR, 4 NFR, 4 SEC, 3 AC; plus all 7 dashboard capabilities from the v1 scope |
+| Automated tests | 261 (shared 37 · api 203 · web 21), green in CI on every push |
+| Acceptance criteria | AC-01 – AC-03 pass end to end over HTTP against PostgreSQL |
+| NFR-01 | p95 ≈ 5 ms at 500 req/s across 40 SDK keys (target < 15 ms) |
+| Success criterion | `docker compose up` + `./scripts/demo.sh` pass on a clean stack |
+| SRS revisions driven by design and implementation | 1.0.0 → 1.3.1 (5 revisions, all in the change log) |
+| Requirements dropped | None |
 
 ---
 
@@ -87,6 +99,7 @@ Changes I made to the SRS after validating it against the design and implementat
 | 1.2.0 | §4.5: flag lifecycle state machine | Soft delete introduced a third state that needed explicit rules | `Disabled ⇄ Enabled → Archived`; `Archived` is terminal |
 | 1.2.1 | AC-01 states the expected bucket and value; boundary case added | Phase 2: AC-01 only held because of a specific hash output | Expected bucket `28` written into the criterion; `bucket == percentageRollout` → `DEFAULT` |
 | 1.3.0 | SEC-04 limit configurable (`RATE_LIMIT_PER_MINUTE`, default 1000/min); NFR-01 load is aggregate across SDK keys | Phase 5: NFR-01 and SEC-04 conflicted for a single key; 1000/min is too low for some legitimate server-side clients | Configurable limit with a conservative default |
+| 1.3.1 | FR-30 says "archived" instead of "deleted"; FR-31 lists the `action` values | Phase 9 review: wording still described hard delete after v1.1.0 introduced soft delete | Terminology aligned with SRS §4.5 |
 
 ---
 
@@ -95,24 +108,33 @@ Changes I made to the SRS after validating it against the design and implementat
 | Phase | Finding | Impact | Action |
 | :--- | :--- | :--- | :--- |
 | 2 | **AC-01 silently depends on the hash output.** It expects `reason: "PERCENTAGE_ROLLOUT"` for `usr_1001` at 30%, which is only true because `bucket("usr_1001", "new-checkout") = 28`. With a different user ID the same scenario would return `DEFAULT`. | The acceptance criterion is correct today but brittle and not self-explanatory. | Bucket value pinned by a golden-vector test, so AC-01 cannot break unnoticed. SRS v1.2.1: AC-01 now states the expected bucket (28), the expected value, and the strict boundary case. |
+| 2 | SRS does not define operator edge cases (type coercion, missing attributes, case sensitivity). | Different implementations could disagree. | Defined in design §5.4 and covered by `operators.spec.ts`: strict typing, missing attribute never matches, case-sensitive. |
 | 3 | The design specified an `UPDATE`/`DELETE` trigger for audit immutability, but PostgreSQL `TRUNCATE` bypasses row-level triggers. | Audit history could still be wiped with one statement. | Added a statement-level `BEFORE TRUNCATE` trigger; design §7 updated; covered by a test. |
 | 3 | Prisma refuses `migrate reset` when run by an AI agent (safety guard against destroying a developer database). | The planned test setup could not use `reset`. | Kept the guard intact. Test setup creates `<db>_test`, drops only its schema, and runs `migrate deploy`; it refuses any database whose name does not end with `_test`. |
-| 8 | Default `Secure` cookies in production break login on plain-HTTP self-hosted deployments (e.g. an internal IP). | Admins could not sign in on such a deployment. | `COOKIE_SECURE` override (default unchanged); compose demo uses `false`, README recommends `true` behind HTTPS. |
-| 8 | `prisma` was a dev dependency, but `migrate deploy` runs in the production container on start. | The production image could not apply migrations. | Moved `prisma` to dependencies. |
-| 7 | Because only SDK key hashes are stored (FR-04), the dashboard cannot evaluate on the user's behalf without the raw key. | The playground cannot work out of the box. | The playground asks for the environment's key (kept in `sessionStorage` for the tab). Design §9 updated. |
+| 5 | **NFR-01 and SEC-04 cannot both be exercised with one SDK key.** NFR-01 requires 500 req/s; SEC-04 caps one key at 1000 req/min (≈ 16.7 req/s sustained). A single-key load test is throttled within 2 seconds. | The NFR-01 load test must spread traffic across ≥ 30 environments. It also raises a product question: one backend service evaluating a flag per request can exceed 1000/min on its own. | **Decided:** limit made configurable via `RATE_LIMIT_PER_MINUTE` (default 1000); NFR-01 defined as aggregate load across keys → SRS v1.3.0. |
 | 6 | `jsonwebtoken` reads the system clock for `iat`/`exp`, which would bypass the `Clock` rule and make expiry untestable. | Session expiry could not be tested deterministically. | `iat`/`exp` set explicitly from `Clock`; verification uses `clockTimestamp` from `Clock`. Expiry tested at the exact 12 h boundary. |
 | 6 | Design did not cover concurrent updates: two simultaneous PATCHes could both record the same `previousState`. | Audit history could misstate what changed. | Row lock (`SELECT … FOR UPDATE`) before each update/archive; design §7 updated; concurrency test fails without the lock. |
 | 6 | A bcrypt hash contains `$`, which docker compose interpolates in `.env`. | The admin login would silently break in Docker. | `.env.example` documents single-quoting the hash. |
-| 5 | **NFR-01 and SEC-04 cannot both be exercised with one SDK key.** NFR-01 requires 500 req/s; SEC-04 caps one key at 1000 req/min (≈ 16.7 req/s sustained). A single-key load test is throttled within 2 seconds. | The NFR-01 load test must spread traffic across ≥ 30 environments. It also raises a product question: one backend service evaluating a flag per request can exceed 1000/min on its own. | **Decided:** limit made configurable via `RATE_LIMIT_PER_MINUTE` (default 1000); NFR-01 defined as aggregate load across keys → SRS v1.3.0. |
-| 2 | SRS does not define operator edge cases (type coercion, missing attributes, case sensitivity). | Different implementations could disagree. | Defined in design §5.4 and covered by `operators.spec.ts`: strict typing, missing attribute never matches, case-sensitive. |
+| 7 | Because only SDK key hashes are stored (FR-04), the dashboard cannot evaluate on the user's behalf without the raw key. | The playground cannot work out of the box. | The playground asks for the environment's key (kept in `sessionStorage` for the tab). Design §9 updated. |
+| 8 | Default `Secure` cookies in production break login on plain-HTTP self-hosted deployments (e.g. an internal IP). | Admins could not sign in on such a deployment. | `COOKIE_SECURE` override (default unchanged); compose demo uses `false`, README recommends `true` behind HTTPS. |
+| 8 | `prisma` was a dev dependency, but `migrate deploy` runs in the production container on start. | The production image could not apply migrations. | Moved `prisma` to dependencies. |
 
 ## 4. What Remains / Next Iteration
 
-_To be filled in phase 9._
+Nothing from the v1 SRS remains open. The next iteration, in priority order (rationale in [`05-retrospective.md`](./05-retrospective.md)):
+
+| # | Item | Why next |
+| :--- | :--- | :--- |
+| 1 | **Server-side SDK with a local flag cache** (fetch config, evaluate in-process, refresh via streaming or polling) | Removes the database and the network from the evaluation hot path — the largest production risk below — and makes the per-key rate limit a non-issue for real clients. |
+| 2 | **User accounts and roles** (admin / editor / viewer per workspace) | Today everyone shares one admin login, so the audit log cannot tell people apart (ADR-0006). |
+| 3 | **Production change safety** — required confirmation or second approver for Production changes, scheduled changes | The kill-switch is fast; enabling a risky change in Production is equally fast. |
+| 4 | **Multivariate flags** (string / number / JSON variations) | Deferred in SRS §10, Open Question 1. |
+| 5 | **Observability** — structured logs, Prometheus metrics (evaluations, latency, 429s), evaluation counts per flag without DB writes | Needed to operate the service and to find stale flags. |
+| 6 | **Horizontal scaling** — shared rate limiting, config change notifications (PostgreSQL `LISTEN/NOTIFY`) | v1 is deliberately single-instance (ADR-0001, ADR-0005). |
 
 ## 5. Technical Debt (Accepted Shortcuts)
 
-_To be filled in phase 9. Known candidates from the ADRs:_
+Each item was accepted deliberately for v1; none blocks the success criterion.
 
 - In-memory rate limiter is per process ([ADR-0005](./adr/0005-in-memory-rate-limiter.md)).
 - Single shared admin account ([ADR-0006](./adr/0006-single-admin.md)).
@@ -129,4 +151,13 @@ _To be filled in phase 9. Known candidates from the ADRs:_
 
 ## 6. Risks Toward Production
 
-_To be filled in phase 9._
+| Risk | Impact | Likelihood | Mitigation path |
+| :--- | :--- | :--- | :--- |
+| **PostgreSQL is on the evaluation hot path.** A database outage or slow query stops every flag evaluation; clients get errors instead of a last-known value. | High — every client feature depending on a flag is affected | Medium | SDK with local cache and safe defaults (next iteration #1); until then, client-side fallback values. |
+| **Single instance** — no redundancy; a crash or deploy is downtime for evaluations. | High | Medium | Multiple replicas behind a load balancer; requires shared rate limiting (#6). |
+| **Shared admin credentials** — no individual accountability, no MFA, no login throttling; sessions can't be revoked early. | High if the password leaks | Medium | User accounts with roles (#2), login rate limiting, short sessions with server-side revocation. |
+| **Audit log grows forever** — append-only by design, with no retention or archival strategy; `TRUNCATE` is blocked. | Medium — storage and query time grow | High over time | Partition by month; documented retention policy with export before detach. |
+| **No observability** beyond health probes. | Medium — problems are found by users | High | Metrics and structured logs (#5). |
+| **No TLS in the image** — HTTPS must come from a reverse proxy; the demo compose uses `COOKIE_SECURE=false`. | High if exposed directly | Low with a proxy | Document a reverse-proxy setup; default `COOKIE_SECURE=true` outside the demo. |
+| **No backups configured** for the PostgreSQL volume. | High — loss of flags and audit history | Low | Scheduled `pg_dump` or managed PostgreSQL. |
+| **Hash algorithm is frozen** (ADR-0004) — any change reshuffles every user's bucket. | Medium | Low | Golden-vector tests already block accidental changes; version the algorithm if it must ever change. |
