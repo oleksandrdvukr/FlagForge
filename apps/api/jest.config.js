@@ -8,4 +8,11 @@ module.exports = {
     // Test against shared sources so a prior build is not required.
     '^@flagforge/shared$': '<rootDir>/../../packages/shared/src',
   },
+  collectCoverage: true,
+  collectCoverageFrom: ['src/**/*.ts', '!src/main.ts', '!src/**/index.ts'],
+  coverageReporters: ['text-summary', 'lcov'],
+  coverageThreshold: {
+    // The evaluation engine is the core of the product: every line and branch must be tested.
+    './src/evaluation/engine/': { lines: 100, branches: 100, functions: 100, statements: 100 },
+  },
 };
