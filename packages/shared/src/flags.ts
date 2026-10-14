@@ -60,6 +60,8 @@ export interface FlagDto {
   targetingRules: TargetingRule[];
   createdAt: string;
   updatedAt: string;
+  /** FR-13: `null` for active flags; set only in the `ARCHIVED` audit snapshot. */
+  archivedAt: string | null;
 }
 
 export interface Page<T> {

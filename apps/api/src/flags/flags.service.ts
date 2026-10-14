@@ -24,6 +24,7 @@ export function toFlagDto(flag: FeatureFlag): FlagDto {
     targetingRules: targetingRulesSchema.parse(flag.targetingRules),
     createdAt: flag.createdAt.toISOString(),
     updatedAt: flag.updatedAt.toISOString(),
+    archivedAt: flag.archivedAt?.toISOString() ?? null,
   };
 }
 

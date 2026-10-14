@@ -597,7 +597,7 @@ components:
 
     Flag:
       type: object
-      required: [id, environmentId, key, name, description, isEnabled, percentageRollout, targetingRules, createdAt, updatedAt]
+      required: [id, environmentId, key, name, description, isEnabled, percentageRollout, targetingRules, createdAt, updatedAt, archivedAt]
       properties:
         id:
           type: string
@@ -629,6 +629,11 @@ components:
         updatedAt:
           type: string
           format: date-time
+        archivedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: FR-13. Always null on flag endpoints; set in the `newState` of an `ARCHIVED` audit entry.
 
     CreateFlagRequest:
       type: object

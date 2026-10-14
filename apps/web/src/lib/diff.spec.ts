@@ -12,6 +12,7 @@ const flag: FlagDto = {
   targetingRules: [],
   createdAt: '2026-10-14T10:00:00.000Z',
   updatedAt: '2026-10-14T10:00:00.000Z',
+  archivedAt: null,
 };
 
 describe('diffFlagStates', () => {
@@ -45,10 +46,18 @@ describe('diffFlagStates', () => {
       'isEnabled',
       'percentageRollout',
       'targetingRules',
+      'archivedAt',
     ]);
   });
 
-  it('returns no changes for an archive that kept the configuration', () => {
+  it('FR-13, FR-31: shows when a flag was archived', () => {
+    const archived = { ...flag, archivedAt: '2026-10-15T00:00:00.000Z' };
+    expect(diffFlagStates(flag, archived)).toEqual([
+      { field: 'archivedAt', before: null, after: '2026-10-15T00:00:00.000Z' },
+    ]);
+  });
+
+  it('ignores updatedAt, which is shown as the entry time', () => {
     expect(diffFlagStates(flag, { ...flag, updatedAt: '2026-10-15T00:00:00.000Z' })).toEqual([]);
   });
 });

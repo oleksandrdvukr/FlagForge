@@ -12,12 +12,14 @@ const FIELD_LABELS: Record<string, string> = {
   isEnabled: 'Serving',
   percentageRollout: 'Rollout',
   targetingRules: 'Rules',
+  archivedAt: 'Archived',
 };
 
 function show(field: string, value: unknown): string {
   if (value === undefined || value === null) return '—';
   if (field === 'isEnabled') return value ? 'On' : 'Off';
   if (field === 'percentageRollout') return `${String(value)}%`;
+  if (field === 'archivedAt') return new Date(String(value)).toLocaleString();
   if (field === 'targetingRules') {
     const rules = value as {
       attribute: string;

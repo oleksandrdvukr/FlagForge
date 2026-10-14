@@ -78,6 +78,7 @@ describe('Flags & audit log (e2e)', () => {
         targetingRules: [],
         createdAt: '2026-10-14T10:00:00.000Z',
         updatedAt: '2026-10-14T10:00:00.000Z',
+        archivedAt: null,
       });
     });
 
@@ -320,6 +321,11 @@ describe('Flags & audit log (e2e)', () => {
       expect(archived).toMatchObject({
         action: 'ARCHIVED',
         previousState: updated,
+        newState: {
+          ...updated,
+          updatedAt: '2026-10-14T12:10:00.000Z',
+          archivedAt: '2026-10-14T12:10:00.000Z',
+        },
         timestamp: '2026-10-14T12:10:00.000Z',
       });
     });

@@ -6,13 +6,14 @@ export interface FieldChange {
   after: unknown;
 }
 
-/** Fields an admin can change; timestamps are shown separately. */
+/** Fields an admin changes, including archiving; `updatedAt` is shown as the entry time. */
 const TRACKED: (keyof FlagDto)[] = [
   'name',
   'description',
   'isEnabled',
   'percentageRollout',
   'targetingRules',
+  'archivedAt',
 ];
 
 /** FR-31: what changed between the audit entry's previous and new state. */
