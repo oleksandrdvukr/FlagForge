@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Project Name** | FlagForge — Feature Flag & Dynamic Config Engine |
-| **Document Version** | 1.3.2 |
+| **Document Version** | 1.4.0 |
 | **Status** | Approved |
 
 ---
@@ -29,6 +29,40 @@ This document specifies the software requirements for **FlagForge**, a B2B SaaS 
 
 > For the problem context, targeted audience, and scope boundaries, refer to [`docs/00-problem.md`](./00-problem.md).
 
+### 1.1 Product Goals
+
+| # | Goal | Measured by |
+| :--- | :--- | :--- |
+| G-1 | Ship code to production dark and expose it gradually, without a redeploy. | FR-10 – FR-12, FR-21, UC-01 |
+| G-2 | Turn a broken feature off for everyone within one second. | FR-12, FR-21 (`DISABLED` on the next evaluation), UC-02 |
+| G-3 | Give each user a stable experience: the same user gets the same answer, and raising a rollout only adds users. | NFR-02, AC-01 |
+| G-4 | Know who changed which flag, when, and from what to what. | FR-30, FR-31, UC-05 |
+| G-5 | Run the whole product with one command on one machine. | Success criterion in `00-problem.md`, NFR-01 |
+
+### 1.2 Constraints
+
+| # | Constraint | Consequence | Source |
+| :--- | :--- | :--- | :--- |
+| C-1 | Self-hosted as one application image plus PostgreSQL 16, started with `docker compose up`. | No external services (cache, queue, identity provider) in v1. | `00-problem.md` success criterion, ADR-0001 |
+| C-2 | Single application instance. | The rate limiter (SEC-04) may keep its state in memory. | ADR-0001, ADR-0005 |
+| C-3 | One administrator, configured through environment variables. | No user management; every audit entry has the same `actorId`. | §3, ADR-0006 |
+| C-4 | Flags are boolean. | Rules and rollouts resolve to `true` / `false` only. | §10, Open Question 1 |
+| C-5 | Evaluation is read-only. | No evaluation counts or impressions are stored (FR-24). | §10, Open Question 2 |
+| C-6 | The bucketing algorithm is fixed for v1. | Changing it would move users between buckets (NFR-02). | §5, ADR-0004 |
+
+### 1.3 Assumptions
+
+If an assumption turns out to be false, the listed requirement must be revisited.
+
+| # | Assumption | If it is false |
+| :--- | :--- | :--- |
+| A-1 | Client applications send a stable `userId` for each end user. | A user whose ID changes may land in a different bucket (FR-21, NFR-02). |
+| A-2 | SDK keys are secrets of the calling service. v1 has no separate public key type for code running in browsers or mobile apps. | A key shipped in a frontend can be read by its users; rotation (FR-05) is the remedy. |
+| A-3 | Attribute values in the Evaluation Context are supplied and vouched for by the client; FlagForge does not verify them. | A client sending wrong attributes gets wrong targeting (FR-23). |
+| A-4 | PostgreSQL is available while evaluations run; clients keep their own fallback value for when FlagForge cannot answer. | Without a client-side fallback, a database outage stops features that depend on flags (no cache in v1, ADR-0003). |
+| A-5 | Production deployments terminate TLS in a reverse proxy in front of FlagForge. | Session cookies would travel over plain HTTP (SEC-02). |
+| A-6 | Load stays within NFR-01: about 500 evaluations per second in total on one instance. | Horizontal scaling becomes necessary, which C-2 does not allow in v1. |
+
 ---
 
 ## 2. Glossary
@@ -53,6 +87,17 @@ This document specifies the software requirements for **FlagForge**, a B2B SaaS 
 | 1 | **Workspace Admin (Operator)** | Human | Interacts with the FlagForge Dashboard to manage workspaces, flags, environments, and view audit logs. In v1 there is a single bootstrap admin configured via environment variables (no users table); the admin email is used as `actorId` in audit logs. |
 | 2 | **Client Application (SDK)** | Machine | Runs in client backend/frontend services and calls the Evaluation API to resolve feature flag states. |
 | 3 | **Evaluation Engine** | Internal component | Stateless domain component responsible for executing targeting rules and hashing functions. |
+
+### 3.1 Use Cases
+
+| # | Use case | Actor | Main flow | Requirements |
+| :--- | :--- | :--- | :--- | :--- |
+| UC-01 | Gradual release | Workspace Admin | Create the flag (off by default) → deploy code that checks it → turn it on with a 5% rollout → raise to 50%, then 100%. Users already in the rollout stay in it. | FR-10, FR-12, FR-21, NFR-02 |
+| UC-02 | Incident kill-switch | Workspace Admin | A released feature misbehaves → the admin turns the flag off → the next evaluation returns `DISABLED` for every user, with no redeploy. | FR-12, FR-21, FR-24 |
+| UC-03 | Targeted beta | Workspace Admin | Add a rule such as `plan EQUALS enterprise → true` while the rollout stays at 0%: only matching users get the feature. | FR-12, FR-21, FR-23, AC-02 |
+| UC-04 | Evaluate a flag | Client Application | Send `POST /api/v1/evaluate` with the environment's SDK key and the Evaluation Context → receive `value` and `reason`. | FR-20 – FR-24, FR-33, SEC-03, SEC-04 |
+| UC-05 | Review changes | Workspace Admin | Open the environment's audit log → see each change with its actor, time, and previous and new state. | FR-30, FR-31 |
+| UC-06 | Replace a leaked SDK key | Workspace Admin | Rotate the environment's key → the new key is shown once → the old key is rejected from the next request. | FR-03 – FR-05, SEC-01 |
 
 ---
 
@@ -310,3 +355,4 @@ erDiagram
 | 2026-10-14 | 1.3.0 | SEC-04: rate limit configurable via `RATE_LIMIT_PER_MINUTE` (default 1000/min), `429` + `Retry-After`; NFR-01: 500 req/s is an aggregate load spread across SDK keys | Oleksandr Mushynski |
 | 2026-10-14 | 1.3.1 | FR-30: "deleted" → "archived" to match soft delete (v1.1.0); FR-31: list the allowed `action` values | Oleksandr Mushynski |
 | 2026-10-14 | 1.3.2 | Review fixes, no behavior change: Glossary matches v1 scope (no users, boolean flags only); §5 and FR-21 define `bucket` precisely (first 4 bytes, unsigned big-endian), as AC-01 references; §6 shows the `feature_flags` → `audit_logs` relation; AC-03 traces to FR-21 only | Oleksandr Mushynski |
+| 2026-10-14 | 1.4.0 | §1.1 product goals, §1.2 constraints and §1.3 assumptions stated explicitly (previously spread across the problem definition, design and ADRs); §3.1 use cases UC-01 – UC-06 traced to requirements. No requirement changed | Oleksandr Mushynski |
