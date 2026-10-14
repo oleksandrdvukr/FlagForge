@@ -16,8 +16,7 @@ export function FlagEditorPage() {
     return <p className="muted">This flag doesn’t exist or has been archived.</p>;
   }
   if (!flag.data) return <div className="loading">Loading…</div>;
-  // Re-mount the form when the server version changes so it starts from saved values.
-  return <FlagEditor key={flag.data.updatedAt} flag={flag.data} />;
+  return <FlagEditor key={flag.data.id} flag={flag.data} />;
 }
 
 function FlagEditor({ flag }: { flag: FlagDto }) {
@@ -27,6 +26,19 @@ function FlagEditor({ flag }: { flag: FlagDto }) {
   const archive = useArchiveFlag(environment.id);
   const [percentage, setPercentage] = useState(flag.percentageRollout);
   const [drafts, setDrafts] = useState<RuleDraft[]>(flag.targetingRules.map(toDraft));
+  const [base, setBase] = useState(flag);
+  // A newer server version (a save, the kill-switch, another tab) refreshes the form only
+  // if it holds no unsaved edits, so toggling the flag never discards a draft.
+  if (flag.updatedAt !== base.updatedAt) {
+    const untouched =
+      percentage === base.percentageRollout &&
+      JSON.stringify(drafts) === JSON.stringify(base.targetingRules.map(toDraft));
+    setBase(flag);
+    if (untouched) {
+      setPercentage(flag.percentageRollout);
+      setDrafts(flag.targetingRules.map(toDraft));
+    }
+  }
   const [confirmArchive, setConfirmArchive] = useState(false);
   const listUrl = `/w/${workspaceId}/e/${environment.id}/flags`;
 
