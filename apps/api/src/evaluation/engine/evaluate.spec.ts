@@ -119,9 +119,9 @@ describe('evaluate', () => {
       });
     });
 
-    it('FR-21: returns DEFAULT when the bucket equals the percentage', () => {
-      const b = bucket('usr_1001', 'new-checkout');
-      const f = flag({ key: 'new-checkout', percentageRollout: b });
+    it('FR-21: returns DEFAULT when the bucket equals the percentage (AC-01 boundary)', () => {
+      expect(bucket('usr_1001', 'new-checkout')).toBe(28);
+      const f = flag({ key: 'new-checkout', percentageRollout: 28 });
       expect(evaluate(f, { userId: 'usr_1001', attributes: {} })).toEqual({
         value: false,
         reason: 'DEFAULT',
