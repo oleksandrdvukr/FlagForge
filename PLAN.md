@@ -23,7 +23,7 @@ Implementation plan for FlagForge v1. Source of truth: [`docs/01-srs.md`](./docs
 | 6 | Auth, flags & audit API | ✅ |
 | 7 | Dashboard | ✅ |
 | 8 | Packaging & demo | ✅ |
-| 9 | Validation & retrospective | ⬜ |
+| 9 | Validation & retrospective | ✅ |
 
 ---
 

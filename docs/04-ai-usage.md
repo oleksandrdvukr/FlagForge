@@ -118,17 +118,26 @@ I own the problem, requirements, architecture, and every decision; AI is used as
 | Decided to keep demo credentials in `docker-compose.yml` so the success criterion holds with a single `docker compose up`, with the README telling operators to replace them. | Laid out the trade-off (one command vs. a required `.env` step) and recorded it as accepted technical debt. | One-command start preserved |
 | Approved the exit criterion that the README and demo must work on a clean machine (`PLAN.md`). | Ran every command from the README; found and fixed `pnpm dev` not loading `.env` and a missing `--no-deps`. | README commands verified |
 
+### Phase 9 — Validation & Retrospective
+
+| What I did | How AI was used | Outcome |
+| :--- | :--- | :--- |
+| Required a final check of every requirement against the implementation. | Finalized the traceability matrix, risks and roadmap; found that FR-30 still said "deleted" after soft delete was introduced. | SRS v1.3.1; 29 / 29 requirements traced to tests |
+| Rewrote the retrospective draft in my own words: what worked best for me, my process change (threat modeling with STRIDE), the v2 priorities and my takeaway on AI-assisted engineering. | Drafted the initial structure from the project history; checked my edits against the repository and flagged statements that did not match the code, which I then corrected. | `05-retrospective.md` |
+
 ---
 
 ## 3. Where AI Added the Most Value
 
 1. **Consistency checking** — finding contradictions between SRS, design, and data model before any code was written.
 2. **Drafting from a defined structure** — turning my outlines and decisions into complete, uniformly formatted documents (ADRs, OpenAPI).
-3. **Mechanical work** — Markdown formatting, tables, diagram syntax.
+3. **Implementation speed within fixed rules** — writing NestJS modules, tests and the dashboard to the conventions in `CLAUDE.md` (requirement IDs in test names, injected `Clock`, approved stack only).
+4. **Finding what requirements missed** — the `TRUNCATE` gap, concurrent audit entries, the JWT library reading system time, the NFR-01 / SEC-04 conflict.
+5. **Mechanical work** — Markdown formatting, tables, diagram syntax, Docker and CI configuration.
 
 ## 4. Where AI Needed Correction
 
-| Situation | My correction |
+| Situation | How it was caught and fixed |
 | :--- | :--- |
 | AI proposed its own repository layout. | Replaced it with the structure I had planned. |
 | AI wanted to proceed with commits and the next phase on its own. | Introduced an explicit approval gate for every commit. |
