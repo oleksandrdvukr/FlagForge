@@ -3,8 +3,8 @@
 | | |
 | :--- | :--- |
 | **Project Name** | FlagForge — Feature Flag & Dynamic Config Engine |
-| **Document Version** | 1.0.0 |
-| **Status** | Draft |
+| **Document Version** | 1.1.0 |
+| **Status** | Current — describes v1 as built ([change log](#14-change-log)) |
 | **Related** | [`00-problem.md`](./00-problem.md) · [`01-srs.md`](./01-srs.md) |
 
 ---
@@ -24,6 +24,7 @@
 11. [Testing Strategy](#11-testing-strategy)
 12. [Architecture Decision Records](#12-architecture-decision-records)
 13. [Open Questions (SRS Gaps)](#13-open-questions-srs-gaps)
+14. [Change Log](#14-change-log)
 
 ---
 
@@ -52,7 +53,7 @@ flowchart LR
 
 - **One process, one database.** The whole product ships as a single Docker image plus PostgreSQL (`docker compose up`).
 - **Pure domain core.** The evaluation algorithm is a pure function with no I/O, no clock, and no randomness — this is what makes FR-24 and NFR-02 testable.
-- **Read-only hot path.** `POST /api/v1/evaluate` performs exactly one indexed read and zero writes (FR-24).
+- **Read-only hot path.** `POST /api/v1/evaluate` performs two indexed point reads (SDK key, flag) and zero writes (FR-24).
 - **SRS is the source of truth.** Every module and test traces back to `FR-xx` / `NFR-xx` / `SEC-xx` IDs.
 
 ---
@@ -321,16 +322,17 @@ Content-Type: application/json
   "statusCode": 400,
   "error": "Bad Request",
   "message": "Validation failed",
-  "details": [{ "path": ["percentageRollout"], "message": "Number must be less than or equal to 100" }]
+  "details": [{ "path": ["percentageRollout"], "message": "Too big: expected number to be <=100" }]
 }
 ```
 
 | Status | When |
 | :--- | :--- |
-| `400` | Zod validation failure (SEC-03) |
+| `400` | Malformed JSON body or Zod validation failure (SEC-03) |
 | `401` | Missing/invalid JWT or SDK key |
 | `404` | Resource or flag not found |
 | `409` | Duplicate flag key within an environment |
+| `413` | Request body larger than 100 kB |
 | `429` | Rate limit exceeded (SEC-04) |
 
 ---
@@ -369,7 +371,8 @@ The logical model is defined in [SRS §6](./01-srs.md#6-data-model-er-diagram). 
 | Session | HS256 JWT (`JWT_SECRET`), cookie `ff_session`: `HttpOnly`, `SameSite=Lax`, `Secure` in production, 12 h TTL. `iat`/`exp` are set from the injected `Clock` and verified against it. | SEC-02 |
 | Input validation | Global `ZodValidationPipe`; schemas live in `packages/shared`. | SEC-03 |
 | Rate limiting | In-memory token bucket per environment: capacity `RATE_LIMIT_PER_MINUTE` (default 1000), refill `RATE_LIMIT_PER_MINUTE / 60` tokens per second, time from `Clock`. Valid because v1 is single-instance. | SEC-04 |
-| Logging | Request logs exclude `X-Environment-Key`, cookies, and request bodies of `/auth/*`. | SEC-01 |
+| Logging | No request logging in v1. The error filter logs only stack traces of unexpected 5xx errors, never headers or bodies, so SDK keys, cookies and passwords cannot reach the logs. | SEC-01 |
+| Response headers | `X-Powered-By` removed; `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` and a `Content-Security-Policy` (`'self'` plus Google Fonts, `frame-ancestors 'none'`) on every response. | — |
 
 ---
 
@@ -387,7 +390,7 @@ A minimal React SPA built with Vite and served by NestJS from the same origin (n
 | SDK keys | Rotate key, show raw key once with a copy button |
 | Audit log | Paginated list with diff of `previousState` → `newState` |
 
-Server state is managed with TanStack Query; forms validate with the same Zod schemas as the API.
+Server state is managed with TanStack Query. Forms check input before sending (the flag key pattern from `packages/shared`, typed rule values); the API's Zod schemas stay the authority (SEC-03) and their error messages are shown in the form.
 
 - **Rollout visualization:** the rollout is drawn as the 100 deterministic buckets (10×10). The playground highlights the bucket of the evaluated user, using a Web Crypto port of `bucket()` pinned to the server's golden vectors. The server stays the source of truth for the result.
 - **Playground and SDK keys:** since only key hashes are stored (FR-04), the playground asks for the environment's raw key and keeps it in `sessionStorage` for that tab only.
@@ -410,6 +413,7 @@ flowchart LR
 - **Dockerfile:** multi-stage on `node:24-bookworm-slim` (Debian rather than Alpine: Prisma engines and the native `bcrypt` module work without musl workarounds) — build `shared`, `web`, `api`; final image contains only the compiled API, the built SPA, the migrations and production dependencies, and runs as the unprivileged `node` user with a `/readyz` healthcheck.
 - **Demo defaults:** `docker-compose.yml` ships demo credentials so `docker compose up` works with no setup; every value can be overridden from `.env`, and the README tells operators to replace them.
 - **Startup:** `prisma migrate deploy` → start NestJS. Compose uses a Postgres healthcheck so the app waits for the DB.
+- **Database port:** Compose publishes PostgreSQL only on `127.0.0.1`, on host port `55432` by default (`POSTGRES_PORT`), so it neither collides with a local PostgreSQL on `5432` nor is reachable from the network with the demo password.
 
 | Variable | Required | Default | Description |
 | :--- | :--- | :--- | :--- |
@@ -435,7 +439,7 @@ Test names reference requirement IDs, e.g. `it('FR-21: returns DISABLED when mas
 | Unit | Pure engine, operators, bucketing, token bucket, SDK key hashing | Jest | Golden-vector test for `bucket()`; distribution test (10k users ≈ configured %) |
 | Integration | Services + real PostgreSQL | Jest, Prisma, Compose Postgres | Flag update writes audit entry in same transaction; audit row cannot be updated |
 | E2E | HTTP API end to end | Jest, Supertest | AC-01, AC-02, AC-03 from SRS §9; 401 / 404 / 429 paths |
-| Performance | NFR-01 smoke check | `scripts/demo.sh` (curl timing) | p95 < 15 ms at 500 req/s on a single instance |
+| Performance | NFR-01 load test | `scripts/load-test.mjs` (open-loop, 500 req/s across 40 SDK keys); `scripts/demo.sh` reports single-client round-trip latency | p95 < 15 ms at 500 req/s on a single instance |
 
 Time-dependent logic (JWT expiry, rate limiting, audit timestamps) is tested with a fake `Clock`.
 
@@ -467,3 +471,18 @@ All gaps found while writing this design were resolved in SRS v1.1.0:
 | 2 | Admin identity | Single env-configured admin (ADR-06); `actor_id` = admin email. | §3, §6 |
 | 3 | Flag key uniqueness | `UNIQUE (environment_id, key)`. | §6 |
 | 4 | `MISSING_USER_ID` with 0% rollout | Kept as in the SRS flowchart: `userId` is checked before rollout regardless of percentage. | §5 |
+
+---
+
+## 14. Change Log
+
+| Date | Version | Summary of Changes | Author |
+| :--- | :--- | :--- | :--- |
+| 2026-10-14 | 1.0.0 | Initial design: architecture, stack, modules, evaluation engine, API, persistence, security, dashboard, deployment, testing, ADR summary | Oleksandr Mushynski |
+| 2026-10-14 | 1.0.0 | Repository layout and stack aligned with the project structure (pnpm workspaces, OpenAPI contract, CI, `@redocly/cli`) | Oleksandr Mushynski |
+| 2026-10-14 | 1.0.0 | Phase 3: Prisma 6 chosen over 7; `BEFORE TRUNCATE` trigger and CHECK constraints added to §7 | Oleksandr Mushynski |
+| 2026-10-14 | 1.0.0 | SRS v1.3.0: rate limit configurable via `RATE_LIMIT_PER_MINUTE` (§8, §10) | Oleksandr Mushynski |
+| 2026-10-14 | 1.0.0 | Phase 6: row lock for concurrent updates (§7); startup-validated admin, deny-by-default guard, `Clock`-based JWT times (§8) | Oleksandr Mushynski |
+| 2026-10-14 | 1.0.0 | Phase 7: SPA fallback, dashboard logic tests, bucket grid, playground SDK key, Production safety (§2, §9) | Oleksandr Mushynski |
+| 2026-10-14 | 1.0.0 | Phase 8: Docker image, demo defaults, `COOKIE_SECURE`, `WEB_DIST_PATH` (§10) | Oleksandr Mushynski |
+| 2026-10-14 | 1.1.0 | Repository review: versioning and this change log introduced (earlier rows were edits made under 1.0.0); §1 two reads per evaluation; §6.4 `400` for malformed JSON, `413`; §8 actual logging behavior and response headers; §9 how forms validate; §10 database port; §11 load-test tool | Oleksandr Mushynski |
