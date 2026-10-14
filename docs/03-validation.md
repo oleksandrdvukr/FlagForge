@@ -14,7 +14,7 @@ This document compares what was built against [`01-srs.md`](./01-srs.md): which 
 | Acceptance criteria | AC-01 – AC-03 pass end to end over HTTP against PostgreSQL |
 | NFR-01 | p95 ≈ 5 ms at 500 req/s across 40 SDK keys (target < 15 ms) |
 | Success criterion | `docker compose up` + `./scripts/demo.sh` pass on a clean stack |
-| SRS revisions driven by design, implementation and review | 1.0.0 → 1.3.2 (6 revisions, all in the change log) |
+| SRS revisions driven by design, implementation and review | 1.0.0 → 1.4.0 (7 revisions, all in the change log) |
 | Requirements dropped | None |
 
 ---
@@ -101,6 +101,7 @@ Changes I made to the SRS after validating it against the design and implementat
 | 1.3.0 | SEC-04 limit configurable (`RATE_LIMIT_PER_MINUTE`, default 1000/min); NFR-01 load is aggregate across SDK keys | Phase 5: NFR-01 and SEC-04 conflicted for a single key; 1000/min is too low for some legitimate server-side clients | Configurable limit with a conservative default |
 | 1.3.1 | FR-30 says "archived" instead of "deleted"; FR-31 lists the `action` values | Phase 9 review: wording still described hard delete after v1.1.0 introduced soft delete | Terminology aligned with SRS §4.5 |
 | 1.3.2 | Glossary matches v1 scope; `bucket` defined precisely in §5 and FR-21; §6 shows the flag → audit relation; AC-03 traces to FR-21 only | Final repository review: AC-01 referenced a §5 detail that §5 did not state; glossary still mentioned users and variation payloads | Wording fixed; no behavior change |
+| 1.4.0 | §1.1 product goals, §1.2 constraints, §1.3 assumptions and §3.1 use cases made explicit | Check of the repository against the assignment: these topics were spread across the problem definition, design and ADRs instead of being stated in the SRS | Sections added; every use case traced to requirements; no requirement changed |
 
 ---
 

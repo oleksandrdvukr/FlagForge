@@ -12,7 +12,7 @@ FlagForge v1: a self-hosted feature flag service with deterministic percentage r
 | Requirements | 29 / 29 implemented and traced to tests; none dropped |
 | Tests | 269, green in CI on every push |
 | Performance | p95 ≈ 5 ms at 500 req/s (target < 15 ms) |
-| SRS | 6 revisions (1.0.0 → 1.3.2), each triggered by something design, implementation or the final review revealed |
+| SRS | 7 revisions (1.0.0 → 1.4.0), each triggered by something design, implementation or the final review revealed |
 | History | Small Conventional Commits; documentation commits precede the code they describe |
 
 Details: [validation report](./03-validation.md).
