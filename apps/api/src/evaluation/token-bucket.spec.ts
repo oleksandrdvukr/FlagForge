@@ -1,5 +1,5 @@
 import { FakeClock } from '../common/clock/clock';
-import { DEFAULT_RATE_LIMIT, TokenBucketLimiter } from './token-bucket';
+import { DEFAULT_RATE_LIMIT, TokenBucketLimiter, rateLimitFromEnv } from './token-bucket';
 
 describe('TokenBucketLimiter', () => {
   it('SEC-04: allows 1000 requests per minute per key, then rejects', () => {
@@ -52,5 +52,25 @@ describe('TokenBucketLimiter', () => {
     limiter.tryConsume('env-a');
     clock.set('2026-10-14T09:00:00.000Z');
     expect(limiter.tryConsume('env-a').allowed).toBe(false);
+  });
+});
+
+describe('rateLimitFromEnv', () => {
+  it('SEC-04: defaults to 1000 requests per minute', () => {
+    expect(rateLimitFromEnv({})).toEqual(DEFAULT_RATE_LIMIT);
+    expect(rateLimitFromEnv({ RATE_LIMIT_PER_MINUTE: '  ' })).toEqual(DEFAULT_RATE_LIMIT);
+  });
+
+  it('SEC-04: uses RATE_LIMIT_PER_MINUTE when set', () => {
+    expect(rateLimitFromEnv({ RATE_LIMIT_PER_MINUTE: '60000' })).toEqual({
+      capacity: 60000,
+      refillPerSecond: 1000,
+    });
+  });
+
+  it.each(['0', '-5', '1.5', 'abc', '1e3x'])('SEC-04: fails fast on invalid value %p', (value) => {
+    expect(() => rateLimitFromEnv({ RATE_LIMIT_PER_MINUTE: value })).toThrow(
+      'RATE_LIMIT_PER_MINUTE must be a positive integer',
+    );
   });
 });

@@ -7,8 +7,25 @@ export interface RateLimitConfig {
   refillPerSecond: number;
 }
 
-/** SEC-04: 1000 requests per minute per SDK key. */
-export const DEFAULT_RATE_LIMIT: RateLimitConfig = { capacity: 1000, refillPerSecond: 1000 / 60 };
+/** SEC-04 default: 1000 requests per minute per SDK key. */
+export const DEFAULT_REQUESTS_PER_MINUTE = 1000;
+
+export function rateLimitPerMinute(requestsPerMinute: number): RateLimitConfig {
+  return { capacity: requestsPerMinute, refillPerSecond: requestsPerMinute / 60 };
+}
+
+export const DEFAULT_RATE_LIMIT = rateLimitPerMinute(DEFAULT_REQUESTS_PER_MINUTE);
+
+/** SEC-04 (SRS v1.3.0): reads `RATE_LIMIT_PER_MINUTE`; fails fast on invalid values. */
+export function rateLimitFromEnv(env: NodeJS.ProcessEnv = process.env): RateLimitConfig {
+  const raw = env.RATE_LIMIT_PER_MINUTE?.trim();
+  if (!raw) return DEFAULT_RATE_LIMIT;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(`RATE_LIMIT_PER_MINUTE must be a positive integer, got "${raw}"`);
+  }
+  return rateLimitPerMinute(value);
+}
 
 export interface ConsumeResult {
   allowed: boolean;

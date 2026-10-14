@@ -4,7 +4,7 @@ import { EvaluationController } from './evaluation.controller';
 import { EvaluationService } from './evaluation.service';
 import { RATE_LIMIT_CONFIG, RateLimitGuard } from './rate-limit.guard';
 import { SdkKeyGuard } from './sdk-key.guard';
-import { DEFAULT_RATE_LIMIT } from './token-bucket';
+import { rateLimitFromEnv } from './token-bucket';
 
 @Module({
   imports: [EnvironmentsModule],
@@ -13,7 +13,7 @@ import { DEFAULT_RATE_LIMIT } from './token-bucket';
     EvaluationService,
     SdkKeyGuard,
     RateLimitGuard,
-    { provide: RATE_LIMIT_CONFIG, useValue: DEFAULT_RATE_LIMIT },
+    { provide: RATE_LIMIT_CONFIG, useFactory: () => rateLimitFromEnv() },
   ],
 })
 export class EvaluationModule {}
