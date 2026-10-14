@@ -147,6 +147,7 @@ scripts/          demo.sh, load-test.mjs
 | [OpenAPI](docs/api/openapi.yaml) | API contract |
 | [03 — Validation](docs/03-validation.md) | Traceability matrix, requirement changes, technical debt, risks |
 | [04 — AI usage](docs/04-ai-usage.md) | How AI was used and where it was corrected |
+| [05 — Retrospective](docs/05-retrospective.md) | What worked, what I would change, roadmap for v2 |
 | [Plan](PLAN.md) | Phase-by-phase execution plan |
 
 ---
