@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Project Name** | FlagForge — Feature Flag & Dynamic Config Engine |
-| **Document Version** | 1.2.0 |
+| **Document Version** | 1.2.1 |
 | **Status** | Current — describes v1 as built ([change log](#15-change-log)) |
 | **Related** | [`00-problem.md`](./00-problem.md) · [`01-srs.md`](./01-srs.md) |
 
@@ -158,7 +158,10 @@ flagforge/
 │  └─ web/                      # React + Vite dashboard (built & served by NestJS in prod)
 ├─ packages/
 │  └─ shared/                   # Zod schemas, evaluation types & DTOs shared by api and web
-├─ scripts/demo.sh              # Automated evaluation & rollout verification
+├─ scripts/
+│  ├─ seed.sh                  # Sample workspace and flags for reviewers (UC-01 – UC-03)
+│  ├─ demo.sh                  # Success-criterion demo: determinism, distribution, kill-switch
+│  └─ load-test.mjs            # NFR-01 load test (500 req/s across SDK keys)
 ├─ docker-compose.yml           # Local dev & prod stack (PostgreSQL + FlagForge app)
 ├─ Dockerfile                   # Multi-stage single image build
 ├─ .github/workflows/ci.yml     # CI pipeline (lint, typecheck, test, build)
@@ -523,3 +526,4 @@ These are next-iteration items 1 and 6 in the [validation report](./03-validatio
 | 2026-10-14 | 1.0.0 | Phase 8: Docker image, demo defaults, `COOKIE_SECURE`, `WEB_DIST_PATH` (§10) | Oleksandr Mushynski |
 | 2026-10-14 | 1.1.0 | Repository review: versioning and this change log introduced (earlier rows were edits made under 1.0.0); §1 two reads per evaluation; §6.4 `400` for malformed JSON, `413`; §8 actual logging behavior and response headers; §9 how forms validate; §10 database port; §11 load-test tool | Oleksandr Mushynski |
 | 2026-10-14 | 1.2.0 | §14 observability and scalability: signals available in v1, what is left out and why, blockers for horizontal scaling and their path | Oleksandr Mushynski |
+| 2026-10-14 | 1.2.1 | §4 repository layout lists all scripts (`seed.sh`, `demo.sh`, `load-test.mjs`) | Oleksandr Mushynski |
