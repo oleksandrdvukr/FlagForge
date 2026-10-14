@@ -367,7 +367,7 @@ The logical model is defined in [SRS §6](./01-srs.md#6-data-model-er-diagram). 
 | Admin authentication | Single bootstrap admin from env (`ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH` — bcrypt). | FR-32 |
 | Session | HS256 JWT (`JWT_SECRET`), cookie `ff_session`: `HttpOnly`, `SameSite=Lax`, `Secure` in production, 12 h TTL. | SEC-02 |
 | Input validation | Global `ZodValidationPipe`; schemas live in `packages/shared`. | SEC-03 |
-| Rate limiting | In-memory token bucket per environment: capacity 1000, refill 1000/60 tokens per second, time from `Clock`. Valid because v1 is single-instance. | SEC-04 |
+| Rate limiting | In-memory token bucket per environment: capacity `RATE_LIMIT_PER_MINUTE` (default 1000), refill `RATE_LIMIT_PER_MINUTE / 60` tokens per second, time from `Clock`. Valid because v1 is single-instance. | SEC-04 |
 | Logging | Request logs exclude `X-Environment-Key`, cookies, and request bodies of `/auth/*`. | SEC-01 |
 
 ---
@@ -413,6 +413,7 @@ flowchart LR
 | `ADMIN_EMAIL` | yes | — | Bootstrap admin login |
 | `ADMIN_PASSWORD_HASH` | yes | — | bcrypt hash of the admin password |
 | `PORT` | no | `3000` | HTTP port |
+| `RATE_LIMIT_PER_MINUTE` | no | `1000` | Evaluation requests per minute per SDK key (SEC-04) |
 | `NODE_ENV` | no | `production` | Enables `Secure` cookies in production |
 
 ---

@@ -19,7 +19,9 @@ The evaluation endpoint must be limited to 1000 requests per minute per SDK key 
 
 ## Decision
 
-**Option A.** Capacity 1000 tokens, refill 1000/60 tokens per second, time taken from the injected `Clock`. Exceeding the limit returns `429`.
+**Option A.** Capacity `RATE_LIMIT_PER_MINUTE` tokens (default 1000), refill `RATE_LIMIT_PER_MINUTE / 60` tokens per second, time taken from the injected `Clock`. Exceeding the limit returns `429` with `Retry-After`.
+
+**Amendment (SRS v1.3.0):** the limit was made configurable. A single backend service evaluating a flag per request can legitimately exceed 1000/min, so operators tune it per deployment while the default stays conservative.
 
 ## Consequences
 

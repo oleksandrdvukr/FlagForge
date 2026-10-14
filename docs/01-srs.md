@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Project Name** | FlagForge — Feature Flag & Dynamic Config Engine |
-| **Document Version** | 1.2.1 |
+| **Document Version** | 1.3.0 |
 | **Status** | Approved |
 
 ---
@@ -240,7 +240,7 @@ erDiagram
 
 | ID | Category | Requirement |
 | :--- | :--- | :--- |
-| **NFR-01** | Performance | Evaluation endpoint `POST /api/v1/evaluate` p95 response time shall be < 15 ms under a load of 500 req/sec on a single-instance Docker deployment. |
+| **NFR-01** | Performance | Evaluation endpoint `POST /api/v1/evaluate` p95 response time shall be < 15 ms under an aggregate load of 500 req/sec on a single-instance Docker deployment. Because of SEC-04, the load is spread across enough SDK keys that no key exceeds its rate limit. |
 | **NFR-02** | Determinism | Identical evaluation context (`userId`, `attributes`) and flag configuration shall yield identical results across all service restarts and nodes. |
 | **NFR-03** | Availability | Healthcheck endpoints (`GET /healthz`, `GET /readyz`) shall return system readiness status within 5 ms. |
 | **NFR-04** | Statelessness | The Evaluation Engine shall not store client context data or mutation state in memory or database during evaluation. |
@@ -254,7 +254,7 @@ erDiagram
 | **SEC-01** | SDK Key Hashing | SDK keys shall never be stored in plain text. Storage must use SHA-256 hash representations. |
 | **SEC-02** | JWT Authentication | Workspace Admin sessions shall use HTTP-only, `SameSite=Lax` JWT cookies with a 12-hour TTL. |
 | **SEC-03** | Input Validation | All incoming HTTP request payloads must be validated against Zod schemas. Invalid payloads must return `400 Bad Request` with structured error details. |
-| **SEC-04** | Rate Limiting | The evaluation endpoint shall enforce a rate limit of 1000 requests per minute per SDK Key using a token bucket algorithm. |
+| **SEC-04** | Rate Limiting | The evaluation endpoint shall enforce a per-SDK-Key rate limit using a token bucket algorithm. The limit is configurable via `RATE_LIMIT_PER_MINUTE` (default: 1000 requests per minute); requests over the limit return `429 Too Many Requests` with a `Retry-After` header. |
 
 ---
 
@@ -306,3 +306,4 @@ erDiagram
 | 2026-10-14 | 1.1.0 | FR-13: soft delete via `archived_at`; §3: single env-configured admin, `actorId` = admin email; §6: `UNIQUE (environment_id, key)` and `archived_at` column | Oleksandr Mushynski |
 | 2026-10-14 | 1.2.0 | §4.5: flag lifecycle state machine (Disabled / Enabled / Archived) | Oleksandr Mushynski |
 | 2026-10-14 | 1.2.1 | AC-01: state the expected bucket (28) and expected value explicitly; add the strict-boundary case | Oleksandr Mushynski |
+| 2026-10-14 | 1.3.0 | SEC-04: rate limit configurable via `RATE_LIMIT_PER_MINUTE` (default 1000/min), `429` + `Retry-After`; NFR-01: 500 req/s is an aggregate load spread across SDK keys | Oleksandr Mushynski |

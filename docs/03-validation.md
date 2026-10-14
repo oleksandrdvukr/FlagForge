@@ -50,7 +50,7 @@ Status: ⬜ planned · 🟡 in progress · ✅ implemented & tested · ⚠️ ch
 | SEC-01 | SDK keys never stored in plain text | 4, 5 | `sdk-key.spec.ts`, `apps/api/test/workspaces.e2e-spec.ts`; request headers/bodies are never logged (`AllExceptionsFilter` logs only 5xx stacks) | ✅ |
 | SEC-02 | HTTP-only, SameSite=Lax JWT cookie, 12 h TTL | 6 | — | ⬜ |
 | SEC-03 | Zod validation, structured `400` | 4, 5 | `zod-validation.pipe.spec.ts`, `all-exceptions.filter.spec.ts`, `workspaces.e2e-spec.ts`, `apps/api/test/evaluate.e2e-spec.ts` | ✅ |
-| SEC-04 | 1000 req/min per SDK key, token bucket | 5 | `token-bucket.spec.ts` (1000/min, refill, cap, per key, `Retry-After`); `apps/api/test/evaluate.e2e-spec.ts` (429 + recovery, per environment, invalid keys consume no tokens) | ✅ |
+| SEC-04 | Per-SDK-key token bucket, `RATE_LIMIT_PER_MINUTE` (default 1000/min) | 5 | `token-bucket.spec.ts` (1000/min, refill, cap, per key, `Retry-After`, env parsing with fail-fast); `apps/api/test/evaluate.e2e-spec.ts` (429 + recovery, per environment, invalid keys consume no tokens) | ✅ |
 
 ### Acceptance Criteria
 
@@ -73,6 +73,7 @@ Changes I made to the SRS after validating it against the design and implementat
 | 1.1.0 | §6: `UNIQUE (environment_id, key)` | FR-10 requires uniqueness, ER model did not express it | Constraint added to the data model |
 | 1.2.0 | §4.5: flag lifecycle state machine | Soft delete introduced a third state that needed explicit rules | `Disabled ⇄ Enabled → Archived`; `Archived` is terminal |
 | 1.2.1 | AC-01 states the expected bucket and value; boundary case added | Phase 2: AC-01 only held because of a specific hash output | Expected bucket `28` written into the criterion; `bucket == percentageRollout` → `DEFAULT` |
+| 1.3.0 | SEC-04 limit configurable (`RATE_LIMIT_PER_MINUTE`, default 1000/min); NFR-01 load is aggregate across SDK keys | Phase 5: NFR-01 and SEC-04 conflicted for a single key; 1000/min is too low for some legitimate server-side clients | Configurable limit with a conservative default |
 
 ---
 
@@ -83,7 +84,7 @@ Changes I made to the SRS after validating it against the design and implementat
 | 2 | **AC-01 silently depends on the hash output.** It expects `reason: "PERCENTAGE_ROLLOUT"` for `usr_1001` at 30%, which is only true because `bucket("usr_1001", "new-checkout") = 28`. With a different user ID the same scenario would return `DEFAULT`. | The acceptance criterion is correct today but brittle and not self-explanatory. | Bucket value pinned by a golden-vector test, so AC-01 cannot break unnoticed. SRS v1.2.1: AC-01 now states the expected bucket (28), the expected value, and the strict boundary case. |
 | 3 | The design specified an `UPDATE`/`DELETE` trigger for audit immutability, but PostgreSQL `TRUNCATE` bypasses row-level triggers. | Audit history could still be wiped with one statement. | Added a statement-level `BEFORE TRUNCATE` trigger; design §7 updated; covered by a test. |
 | 3 | Prisma refuses `migrate reset` when run by an AI agent (safety guard against destroying a developer database). | The planned test setup could not use `reset`. | Kept the guard intact. Test setup creates `<db>_test`, drops only its schema, and runs `migrate deploy`; it refuses any database whose name does not end with `_test`. |
-| 5 | **NFR-01 and SEC-04 cannot both be exercised with one SDK key.** NFR-01 requires 500 req/s; SEC-04 caps one key at 1000 req/min (≈ 16.7 req/s sustained). A single-key load test is throttled within 2 seconds. | The NFR-01 load test must spread traffic across ≥ 30 environments. It also raises a product question: one backend service evaluating a flag per request can exceed 1000/min on its own. | **Open — needs a decision before phase 8.** |
+| 5 | **NFR-01 and SEC-04 cannot both be exercised with one SDK key.** NFR-01 requires 500 req/s; SEC-04 caps one key at 1000 req/min (≈ 16.7 req/s sustained). A single-key load test is throttled within 2 seconds. | The NFR-01 load test must spread traffic across ≥ 30 environments. It also raises a product question: one backend service evaluating a flag per request can exceed 1000/min on its own. | **Decided:** limit made configurable via `RATE_LIMIT_PER_MINUTE` (default 1000); NFR-01 defined as aggregate load across keys → SRS v1.3.0. |
 | 2 | SRS does not define operator edge cases (type coercion, missing attributes, case sensitivity). | Different implementations could disagree. | Defined in design §5.4 and covered by `operators.spec.ts`: strict typing, missing attribute never matches, case-sensitive. |
 
 ## 4. What Remains / Next Iteration

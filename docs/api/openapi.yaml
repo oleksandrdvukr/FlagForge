@@ -466,7 +466,7 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
     TooManyRequests:
-      description: Rate limit of 1000 requests/minute per SDK key exceeded (SEC-04).
+      description: "Per-SDK-key rate limit exceeded (SEC-04). Configurable via `RATE_LIMIT_PER_MINUTE`, default 1000 requests/minute."
       headers:
         Retry-After:
           description: Seconds until a token is available.

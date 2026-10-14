@@ -89,7 +89,7 @@ I own the problem, requirements, architecture, and every decision; AI is used as
 | Defined the evaluation contract and its order of checks: authenticate → rate-limit → validate → evaluate (FR-20, FR-33, SEC-03, SEC-04). | Implemented the error filter, `SdkKeyGuard`, the token-bucket `RateLimitGuard` on the injected `Clock`, and the endpoint. | First end-to-end vertical slice: SDK key → evaluate → result |
 | Required the SRS acceptance criteria to run over real HTTP against a real database. | Wrote AC-01 – AC-03 as e2e tests, including the AC-01 boundary clarified in SRS v1.2.1. | All acceptance criteria green end to end |
 | Insisted that FR-24 ("zero writes") be proven, not assumed. | Recorded every database operation during evaluation; verified the check by injecting a write, which the test caught. | FR-24 enforced by a test |
-| Kept conflicts between requirements as my decision (per `CLAUDE.md`). | Surfaced that NFR-01 (500 req/s) cannot be load-tested through one key under SEC-04 (1000/min). | Open question recorded for my decision before phase 8 |
+| Kept conflicts between requirements as my decision (per `CLAUDE.md`). | Surfaced that NFR-01 (500 req/s) cannot be load-tested through one key under SEC-04 (1000/min), and offered three options. | I chose a configurable limit (`RATE_LIMIT_PER_MINUTE`, default 1000/min) and defined NFR-01 as aggregate load → SRS v1.3.0, ADR-0005 amended |
 
 ---
 
