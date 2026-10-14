@@ -7,8 +7,9 @@ Deploy code to production dark, roll a feature out to 5% → 50% → 100% of use
 - **Deterministic rollouts** — each user lands in one of 100 fixed buckets (`sha256(userId:flagKey)`), so the same user always gets the same answer, and raising the percentage only ever adds users.
 - **Targeting rules** — serve a feature to `plan EQUALS enterprise`, `country IN UA,PL`, `seats GREATER_THAN 100`…; the first matching rule wins.
 - **Kill-switch** — the master toggle takes effect on the very next evaluation (no caches to expire).
-- **Audit log** — every change is recorded with who made it and the full before/after state; entries can't be edited or deleted, even directly in the database.
-- **Fast, side-effect-free evaluation** — p95 ≈ 5 ms at 500 req/s on one instance; zero database writes per evaluation.
+- **Audit log** — every change is recorded with who made it and the full before/after state; `UPDATE`, `DELETE` and `TRUNCATE` on the log are rejected by the database itself.
+- **Fast, side-effect-free evaluation** — zero database writes per evaluation; p95 ≈ 5 ms at 500 req/s on a single instance ([measured locally](docs/03-validation.md#non-functional-requirements) against the Docker image).
+- **Web dashboard** — flags with kill-switch toggles, rule builder, rollout slider drawn as the 100 buckets, an evaluation playground, SDK key rotation and the audit log with per-field diffs.
 
 ---
 
@@ -19,6 +20,8 @@ Requirements: Docker with Compose.
 ```bash
 docker compose up -d
 ```
+
+The first run builds the image (a few minutes). Migrations are applied automatically on start; data lives in the `pgdata` volume (`docker compose down -v` resets it).
 
 Open **http://localhost:3000** and sign in with the demo admin:
 
@@ -47,6 +50,8 @@ Needs only `bash` and `curl`.
 ### Evaluate a flag from your app
 
 Creating a workspace shows one SDK key per environment (`ff_test_…` for Development, `ff_live_…` for Production) — **once**. Only its hash is stored; if you lose it, rotate it on the *SDK key* page.
+
+For a flag `new-checkout` that is on and has the rule `plan equals enterprise → On`:
 
 ```bash
 curl -X POST http://localhost:3000/api/v1/evaluate \
@@ -77,6 +82,20 @@ otherwise               → false, DEFAULT
 
 ---
 
+## Architecture
+
+A **modular monolith** ([ADR-0001](docs/adr/0001-modular-monolith.md)): one NestJS process serves the management API, the evaluation API and the built React dashboard ([ADR-0007](docs/adr/0007-spa-served-by-nestjs.md)), backed by PostgreSQL. No Redis, queues or caches in v1 — two indexed reads per evaluation already meet the latency target, and a kill-switch can't be delayed by a stale cache ([ADR-0003](docs/adr/0003-no-cache-layer.md)).
+
+| Layer | Choice |
+| :--- | :--- |
+| API | Node 24, TypeScript, NestJS 11, Zod validation, JWT session cookie |
+| Data | PostgreSQL 16 via Prisma 6; targeting rules as JSONB ([ADR-0002](docs/adr/0002-jsonb-targeting-rules.md)); audit immutability and data rules enforced by triggers and CHECK constraints |
+| Evaluation | Pure, I/O-free engine; SHA-256 bucketing ([ADR-0004](docs/adr/0004-deterministic-rollout.md)); in-memory token-bucket rate limit per SDK key ([ADR-0005](docs/adr/0005-in-memory-rate-limiter.md)) |
+| Dashboard | React 19, Vite, React Router, TanStack Query |
+| Delivery | One Docker image + PostgreSQL via Compose; GitHub Actions CI (lint, OpenAPI contract, typecheck, tests on PostgreSQL, Docker build) |
+
+---
+
 ## Configuration
 
 Set these in a `.env` file next to `docker-compose.yml` (copy [`.env.example`](.env.example)).
@@ -103,7 +122,7 @@ The app validates its configuration at startup and refuses to start with a missi
 
 ## Development
 
-Requirements: Node 22+, pnpm 10 (`corepack enable`), Docker.
+Requirements: Node 22.12+ (CI and the image use Node 24), pnpm 10 (`corepack enable`), Docker.
 
 ```bash
 pnpm install
@@ -133,6 +152,21 @@ packages/shared   Zod schemas and types shared by api and web
 docs/             problem, SRS, design, ADRs, OpenAPI, validation, AI usage, retrospective
 scripts/          demo.sh, load-test.mjs
 ```
+
+---
+
+## How it was built
+
+The work followed the SDLC end to end, and the [commit history](https://github.com/oleksandrdvukr/FlagForge/commits/main) shows each step:
+
+1. **Problem** → [00-problem.md](docs/00-problem.md): users, value, scope, non-goals, success criterion.
+2. **Requirements** → [01-srs.md](docs/01-srs.md): every requirement has an ID (`FR-xx`, `NFR-xx`, `SEC-xx`) used in test names.
+3. **Design** → [02-design.md](docs/02-design.md), [ADRs](docs/adr/README.md), [OpenAPI contract](docs/api/openapi.yaml) — written before any code.
+4. **Implementation** in eight gated phases (1 – 8 of [PLAN.md](PLAN.md)): each ended with lint and tests passing, an updated validation report, and a review before commit.
+5. **Validation** → [03-validation.md](docs/03-validation.md): 29 / 29 requirements traced to tests. Implementation fed back into the requirements: the SRS went from 1.0.0 to 1.3.1, each change recorded in its change log.
+6. **Next iteration** → [05-retrospective.md](docs/05-retrospective.md): what worked, what I would change, the v2 roadmap.
+
+How AI was used, and where it was corrected, is documented in [04-ai-usage.md](docs/04-ai-usage.md).
 
 ---
 
