@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { ApiError } from './api/client';
 import { Shell } from './layout/Shell';
+import { FlagsPage } from './pages/FlagsPage';
 import { HomeRedirect } from './pages/HomeRedirect';
 import { LoginPage } from './pages/LoginPage';
 import { NewWorkspacePage } from './pages/NewWorkspacePage';
@@ -25,6 +26,7 @@ const router = createBrowserRouter([
     path: '/w/:workspaceId/e/:environmentId',
     element: <Shell />,
     children: [
+      { path: 'flags', element: <FlagsPage /> },
     ],
   },
   { path: '*', element: <HomeRedirect /> },
