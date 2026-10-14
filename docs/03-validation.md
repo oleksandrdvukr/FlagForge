@@ -25,10 +25,10 @@ Status: ⬜ planned · 🟡 in progress · ✅ implemented & tested · ⚠️ ch
 | FR-12 | Update flag configuration | 6 | — | ⬜ |
 | FR-13 | Archive flag (soft delete) | 6 | — | ⬜ |
 | FR-20 | `POST /api/v1/evaluate` | 5 | — | ⬜ |
-| FR-21 | Resolution order: master → rules → rollout → default | 2 | — | ⬜ |
-| FR-22 | Missing `userId` → `MISSING_USER_ID` | 2 | — | ⬜ |
-| FR-23 | Operators `EQUALS`, `NOT_EQUALS`, `IN`, `CONTAINS`, `GREATER_THAN` | 2 | — | ⬜ |
-| FR-24 | Stateless, deterministic, zero DB writes | 2, 5 | — | ⬜ |
+| FR-21 | Resolution order: master → rules → rollout → default | 2 | `apps/api/src/evaluation/engine/evaluate.spec.ts`, `bucket.spec.ts` | ✅ |
+| FR-22 | Missing `userId` → `MISSING_USER_ID` | 2 | `apps/api/src/evaluation/engine/evaluate.spec.ts` | ✅ |
+| FR-23 | Operators `EQUALS`, `NOT_EQUALS`, `IN`, `CONTAINS`, `GREATER_THAN` | 2 | `apps/api/src/evaluation/engine/operators.spec.ts`, `packages/shared/src/evaluation.spec.ts` | ✅ |
+| FR-24 | Stateless, deterministic, zero DB writes | 2, 5 | `apps/api/src/evaluation/engine/evaluate.spec.ts` (pure, no mutation) | 🟡 zero-writes check at API level in phase 5 |
 | FR-30 | Immutable audit entry on every flag mutation | 3, 6 | — | ⬜ |
 | FR-31 | Audit entry fields | 6 | — | ⬜ |
 | FR-32 | JWT-authenticated management API | 6 | — | ⬜ |
@@ -39,9 +39,9 @@ Status: ⬜ planned · 🟡 in progress · ✅ implemented & tested · ⚠️ ch
 | ID | Requirement (short) | Phase | Verification | Status |
 | :--- | :--- | :--- | :--- | :--- |
 | NFR-01 | Evaluate p95 < 15 ms @ 500 req/s | 8 | — | ⬜ |
-| NFR-02 | Deterministic results across restarts & nodes | 2 | — | ⬜ |
+| NFR-02 | Deterministic results across restarts & nodes | 2 | `apps/api/src/evaluation/engine/bucket.spec.ts` (golden vectors computed independently in Python), `evaluate.spec.ts` | ✅ |
 | NFR-03 | `/healthz`, `/readyz` within 5 ms | 1, 3 | `apps/api/test/health.e2e-spec.ts`; manual: `/healthz` ≈ 8 ms on cold process | 🟡 `/readyz` DB ping comes in phase 3 |
-| NFR-04 | No client context stored during evaluation | 2, 5 | — | ⬜ |
+| NFR-04 | No client context stored during evaluation | 2, 5 | Engine is a pure function with no state | 🟡 API level in phase 5 |
 
 ### Security Requirements
 
@@ -56,9 +56,9 @@ Status: ⬜ planned · 🟡 in progress · ✅ implemented & tested · ⚠️ ch
 
 | ID | Scenario | Phase | Test | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| AC-01 | Deterministic percentage rollout | 5 | — | ⬜ |
-| AC-02 | Targeting rule override | 5 | — | ⬜ |
-| AC-03 | Disabled master switch | 5 | — | ⬜ |
+| AC-01 | Deterministic percentage rollout | 2, 5 | Engine: `apps/api/src/evaluation/engine/evaluate.spec.ts` | 🟡 e2e in phase 5 |
+| AC-02 | Targeting rule override | 2, 5 | Engine: `apps/api/src/evaluation/engine/evaluate.spec.ts` | 🟡 e2e in phase 5 |
+| AC-03 | Disabled master switch | 2, 5 | Engine: `apps/api/src/evaluation/engine/evaluate.spec.ts` | 🟡 e2e in phase 5 |
 
 ---
 
@@ -77,7 +77,10 @@ Changes I made to the SRS after validating it against the design and implementat
 
 ## 3. Incorrect Assumptions Discovered
 
-_To be filled during implementation (phases 1–8)._
+| Phase | Finding | Impact | Action |
+| :--- | :--- | :--- | :--- |
+| 2 | **AC-01 silently depends on the hash output.** It expects `reason: "PERCENTAGE_ROLLOUT"` for `usr_1001` at 30%, which is only true because `bucket("usr_1001", "new-checkout") = 28`. With a different user ID the same scenario would return `DEFAULT`. | The acceptance criterion is correct today but brittle and not self-explanatory. | Bucket value pinned by a golden-vector test, so AC-01 cannot break unnoticed. Candidate SRS clarification: state the expected bucket in AC-01. |
+| 2 | SRS does not define operator edge cases (type coercion, missing attributes, case sensitivity). | Different implementations could disagree. | Defined in design §5.4 and covered by `operators.spec.ts`: strict typing, missing attribute never matches, case-sensitive. |
 
 ## 4. What Remains / Next Iteration
 

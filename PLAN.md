@@ -16,7 +16,7 @@ Implementation plan for FlagForge v1. Source of truth: [`docs/01-srs.md`](./docs
 | :--- | :--- | :--- |
 | 0 | Design artifacts (ADRs, OpenAPI) | ✅ |
 | 1 | Monorepo scaffold & CI | ✅ |
-| 2 | Evaluation engine (pure domain) | ⬜ |
+| 2 | Evaluation engine (pure domain) | ✅ |
 | 3 | Persistence | ⬜ |
 | 4 | Workspaces, environments & SDK keys | ⬜ |
 | 5 | Evaluation API | ⬜ |

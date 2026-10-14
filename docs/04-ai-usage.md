@@ -55,6 +55,14 @@ I own the problem, requirements, architecture, and every decision; AI is used as
 | Set the `Clock` rule in `CLAUDE.md` (no `Date.now()` / `new Date()` in domain code). | Turned the rule into an ESLint check so it is enforced automatically, not just by review. | Lint fails on direct system-time access in `apps/api/src` |
 | Kept the "no new technologies without approval" gate. | Flagged the only additions — Nest CLI for watch mode (part of NestJS tooling) and `globals` (ESLint config helper). | Stack unchanged in substance |
 
+### Phase 2 — Evaluation Engine
+
+| What I did | How AI was used | Outcome |
+| :--- | :--- | :--- |
+| Set the exit criteria for the core of the product: every FR-21 – FR-23 branch tested, pinned bucket outputs, a distribution check, and 100% coverage of the engine. | Implemented `bucket()`, the operators and `evaluate()` as pure functions, and wrote 75 tests named after requirement IDs. | 100% line/branch coverage, enforced by a Jest threshold |
+| Required that tests prove behaviour, not just execute code. | Golden vectors were computed with an independent implementation (Python `hashlib`), not with the code under test. Two deliberate mutations (`<` → `<=`, swapped hash input) were each caught by the suite. | Tests verified to detect regressions |
+| Reviewed the results against the SRS. | Surfaced that AC-01 only holds because `usr_1001` lands in bucket 28 — recorded in the validation report. | Requirement weakness documented instead of hidden |
+
 ---
 
 ## 3. Where AI Added the Most Value
