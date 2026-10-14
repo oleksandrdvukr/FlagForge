@@ -47,6 +47,14 @@ I own the problem, requirements, architecture, and every decision; AI is used as
 | Required decisions to be recorded as separate ADRs with alternatives. | Drafted ADR-0001 … 0007 from the design decisions (context, options, consequences). | `docs/adr/` |
 | Required a contract-first OpenAPI specification. | Drafted `openapi.yaml`; Redocly caught a schema error (`nullable` without `type`) in the generated file, which was fixed before commit. | Valid OpenAPI 3.0 contract, 0 lint issues |
 
+### Phase 1 — Monorepo Scaffold & CI
+
+| What I did | How AI was used | Outcome |
+| :--- | :--- | :--- |
+| Defined the monorepo layout (pnpm, `apps/api`, `apps/web`, `packages/shared`) and the phase exit criteria: lint, typecheck, test, build must pass and `/healthz` must answer. | Generated the configuration (TypeScript, ESLint, Prettier, Jest, Vite, Docker Compose, CI) and the health module with e2e tests named after NFR-03. | All checks green locally; Postgres container starts healthy |
+| Set the `Clock` rule in `CLAUDE.md` (no `Date.now()` / `new Date()` in domain code). | Turned the rule into an ESLint check so it is enforced automatically, not just by review. | Lint fails on direct system-time access in `apps/api/src` |
+| Kept the "no new technologies without approval" gate. | Flagged the only additions — Nest CLI for watch mode (part of NestJS tooling) and `globals` (ESLint config helper). | Stack unchanged in substance |
+
 ---
 
 ## 3. Where AI Added the Most Value

@@ -40,7 +40,7 @@ Status: ⬜ planned · 🟡 in progress · ✅ implemented & tested · ⚠️ ch
 | :--- | :--- | :--- | :--- | :--- |
 | NFR-01 | Evaluate p95 < 15 ms @ 500 req/s | 8 | — | ⬜ |
 | NFR-02 | Deterministic results across restarts & nodes | 2 | — | ⬜ |
-| NFR-03 | `/healthz`, `/readyz` within 5 ms | 1 | — | ⬜ |
+| NFR-03 | `/healthz`, `/readyz` within 5 ms | 1, 3 | `apps/api/test/health.e2e-spec.ts`; manual: `/healthz` ≈ 8 ms on cold process | 🟡 `/readyz` DB ping comes in phase 3 |
 | NFR-04 | No client context stored during evaluation | 2, 5 | — | ⬜ |
 
 ### Security Requirements
