@@ -19,7 +19,7 @@ Implementation plan for FlagForge v1. Source of truth: [`docs/01-srs.md`](./docs
 | 2 | Evaluation engine (pure domain) | ✅ |
 | 3 | Persistence | ✅ |
 | 4 | Workspaces, environments & SDK keys | ✅ |
-| 5 | Evaluation API | ⬜ |
+| 5 | Evaluation API | ✅ |
 | 6 | Auth, flags & audit API | ⬜ |
 | 7 | Dashboard | ⬜ |
 | 8 | Packaging & demo | ⬜ |

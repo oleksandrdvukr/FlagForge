@@ -82,6 +82,15 @@ I own the problem, requirements, architecture, and every decision; AI is used as
 | Approved moving the validation pipe from phase 5 to phase 4, where the first request body appears. | Proposed the change and updated `PLAN.md`. | Plan stays accurate |
 | Kept time under test control via the `Clock` rule. | e2e tests use `FakeClock`, so `createdAt` values and ordering are asserted exactly. | Deterministic timestamps in tests |
 
+### Phase 5 — Evaluation API
+
+| What I did | How AI was used | Outcome |
+| :--- | :--- | :--- |
+| Defined the evaluation contract and its order of checks: authenticate → rate-limit → validate → evaluate (FR-20, FR-33, SEC-03, SEC-04). | Implemented the error filter, `SdkKeyGuard`, the token-bucket `RateLimitGuard` on the injected `Clock`, and the endpoint. | First end-to-end vertical slice: SDK key → evaluate → result |
+| Required the SRS acceptance criteria to run over real HTTP against a real database. | Wrote AC-01 – AC-03 as e2e tests, including the AC-01 boundary clarified in SRS v1.2.1. | All acceptance criteria green end to end |
+| Insisted that FR-24 ("zero writes") be proven, not assumed. | Recorded every database operation during evaluation; verified the check by injecting a write, which the test caught. | FR-24 enforced by a test |
+| Kept conflicts between requirements as my decision (per `CLAUDE.md`). | Surfaced that NFR-01 (500 req/s) cannot be load-tested through one key under SEC-04 (1000/min). | Open question recorded for my decision before phase 8 |
+
 ---
 
 ## 3. Where AI Added the Most Value
@@ -97,6 +106,7 @@ I own the problem, requirements, architecture, and every decision; AI is used as
 | AI proposed its own repository layout. | Replaced it with the structure I had planned. |
 | AI wanted to proceed with commits and the next phase on its own. | Introduced an explicit approval gate for every commit. |
 | Generated OpenAPI contained a schema error. | Caught by the Redocly validator I approved for CI. |
+| A generated e2e test helper used a default parameter, so "no header" silently sent the header. | Caught by the failing test; the helper was fixed instead of weakening the assertion. |
 
 ---
 
