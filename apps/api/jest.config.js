@@ -3,11 +3,13 @@ module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   roots: ['<rootDir>/src', '<rootDir>/test'],
-  testRegex: '\\.(spec|e2e-spec)\\.ts$',
+  testRegex: '\\.(spec|int-spec|e2e-spec)\\.ts$',
   moduleNameMapper: {
     // Test against shared sources so a prior build is not required.
     '^@flagforge/shared$': '<rootDir>/../../packages/shared/src',
   },
+  // Resets the `<db>_test` database and applies all migrations once per run.
+  globalSetup: '<rootDir>/test/setup/global-setup.ts',
   collectCoverage: true,
   collectCoverageFrom: ['src/**/*.ts', '!src/main.ts', '!src/**/index.ts'],
   coverageReporters: ['text-summary', 'lcov'],
